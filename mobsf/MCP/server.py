@@ -306,6 +306,23 @@ TOOLS: list[mcp_types.Tool] = [
             'required': ['tech_name'],
         },
     ),
+    mcp_types.Tool(
+        name='mobsf_masvs_coverage',
+        description=(
+            'Get MASVS v2.1 coverage report for the scanner. Shows which of the 27 controls '
+            'are fully covered, partially covered, or gaps. Optionally tags a list of findings '
+            'with MASVS control IDs so the triage UI can display MASVS badges.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'findings': {
+                    'type': 'array',
+                    'description': 'Optional findings list to tag with MASVS control IDs.',
+                },
+            },
+        },
+    ),
 ]
 
 
@@ -469,6 +486,16 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
                     version=arguments.get('version', ''),
                     severity=arguments.get('severity', 'medium,high,critical'),
                 )
+
+        elif name == 'mobsf_masvs_coverage':
+            from mobsf.StaticAnalyzer.views.common.masvs_coverage import (
+                coverage_report,
+                tag_findings_with_masvs,
+            )
+            findings = list(arguments.get('findings') or [])
+            if findings:
+                findings = tag_findings_with_masvs(findings)
+            result = coverage_report(findings or None)
 
         else:
             result = {'error': f'Unknown tool: {name}'}
