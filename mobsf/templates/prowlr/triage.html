@@ -1,0 +1,181 @@
+{% extends "base/base_layout.html" %}
+{% block title %}Triage Dashboard{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+  <section class="content-header">
+    <div class="container-fluid">
+      <div class="row align-items-center">
+        <div class="col">
+          <h1><i class="fas fa-filter mr-2"></i>Triage Dashboard
+            <small class="text-muted ml-2">FP Filter + LLM Scoring</small>
+          </h1>
+        </div>
+        <div class="col-auto">
+          {% if llm_status.available %}
+          <span class="badge badge-success p-2"><i class="fas fa-brain mr-1"></i>LLM: {{ llm_status.provider }} / {{ llm_status.model|default:"default" }}</span>
+          {% else %}
+          <span class="badge badge-warning p-2"><i class="fas fa-exclamation-triangle mr-1"></i>LLM offline — rule-based only</span>
+          {% endif %}
+          <a href="{% url 'prowlr_settings' %}" class="btn btn-sm btn-outline-secondary ml-2"><i class="fas fa-cog"></i></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container-fluid">
+
+      {% if error %}
+      <div class="alert alert-danger"><i class="fas fa-bug mr-2"></i>{{ error }}</div>
+      {% endif %}
+
+      <!-- Scan picker -->
+      <div class="card card-outline card-primary">
+        <div class="card-header"><h3 class="card-title"><i class="fas fa-search mr-2"></i>Select Scan to Triage</h3></div>
+        <div class="card-body">
+          <form method="post" action="{% if scan_hash %}{% url 'triage_scan' scan_hash %}{% else %}{% url 'triage_home' %}{% endif %}">
+            {% csrf_token %}
+            <div class="row">
+              <div class="col-md-5">
+                <div class="form-group">
+                  <label>Recent Scans</label>
+                  <select name="_redirect_hash" class="form-control" onchange="this.form.action='/triage/'+this.value+'/'; this.form.method='get';">
+                    <option value="">— pick a scan —</option>
+                    {% for s in recent %}
+                    <option value="{{ s.MD5 }}" {% if s.MD5 == scan_hash %}selected{% endif %}>
+                      {{ s.APP_NAME|default:s.FILE_NAME }} ({{ s.MD5|slice:":8" }}…)
+                    </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="form-group">
+                  <label>Or enter hash directly</label>
+                  <input type="text" id="hash_input" class="form-control" value="{{ scan_hash|default:'' }}"
+                    placeholder="MD5 hash of completed scan"
+                    onchange="document.getElementById('run_btn').formAction='/triage/'+this.value+'/';">
+                </div>
+              </div>
+              <div class="col-md-3 d-flex align-items-end">
+                <div class="form-group w-100">
+                  <div class="form-check mb-1">
+                    <input class="form-check-input" type="checkbox" name="skip_llm" id="skip_llm">
+                    <label class="form-check-label" for="skip_llm">Skip LLM (rule-based only)</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="skip_noise" id="skip_noise">
+                    <label class="form-check-label" for="skip_noise">Hide noise findings</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% if scan_hash %}
+            <button type="submit" id="run_btn" class="btn btn-warning" formaction="{% url 'triage_scan' scan_hash %}">
+              <i class="fas fa-play mr-1"></i>Run Triage
+            </button>
+            {% else %}
+            <button type="button" class="btn btn-secondary" disabled>Select a scan first</button>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+
+      {% if scan_info and not result %}
+      <div class="alert alert-info">
+        <i class="fas fa-info-circle mr-2"></i>
+        Selected: <strong>{{ scan_info.app_name }}</strong> ({{ scan_info.platform }})
+        — click <strong>Run Triage</strong> to analyze findings.
+      </div>
+      {% endif %}
+
+      {% if result %}
+      <!-- Summary row -->
+      <div class="row">
+        {% with result.summary as s %}
+        <div class="col-md-3">
+          <div class="info-box"><span class="info-box-icon bg-primary"><i class="fas fa-list"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Total Findings</span>
+              <span class="info-box-number">{{ s.total|default:"0" }}</span></div></div>
+        </div>
+        <div class="col-md-3">
+          <div class="info-box"><span class="info-box-icon bg-danger"><i class="fas fa-fire"></i></span>
+            <div class="info-box-content"><span class="info-box-text">High Signal</span>
+              <span class="info-box-number">{{ s.high_signal|default:"0" }}</span></div></div>
+        </div>
+        <div class="col-md-3">
+          <div class="info-box"><span class="info-box-icon bg-warning"><i class="fas fa-filter"></i></span>
+            <div class="info-box-content"><span class="info-box-text">FP Filtered</span>
+              <span class="info-box-number">{{ s.false_positives|default:"0" }}</span></div></div>
+        </div>
+        <div class="col-md-3">
+          <div class="info-box"><span class="info-box-icon bg-secondary"><i class="fas fa-volume-mute"></i></span>
+            <div class="info-box-content"><span class="info-box-text">Noise</span>
+              <span class="info-box-number">{{ s.noise|default:"0" }}</span></div></div>
+        </div>
+        {% endwith %}
+      </div>
+
+      <!-- Findings table -->
+      {% if result.findings %}
+      <div class="card card-outline card-warning">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-bug mr-2"></i>Triaged Findings</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button></div>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover table-sm mb-0" id="triage-table">
+            <thead class="thead-dark">
+              <tr>
+                <th>Title</th>
+                <th>Severity</th>
+                <th>FP?</th>
+                <th>LLM Score</th>
+                <th>Verdict</th>
+                <th>Next Test</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in result.findings %}
+              <tr class="{% if f.verdict == 'signal' %}table-warning{% elif f.verdict == 'noise' %}table-secondary{% elif f.verdict == 'false_positive' %}table-danger{% endif %}">
+                <td><small>{{ f.title|truncatechars:60 }}</small></td>
+                <td>
+                  {% if f.severity == "high" or f.severity == "critical" %}<span class="badge badge-danger">{{ f.severity }}</span>
+                  {% elif f.severity == "medium" or f.severity == "warning" %}<span class="badge badge-warning">{{ f.severity }}</span>
+                  {% else %}<span class="badge badge-info">{{ f.severity }}</span>{% endif %}
+                </td>
+                <td>
+                  {% if f.fp_verdict == "fp" %}<span class="badge badge-danger">FP</span>
+                  {% elif f.fp_verdict == "likely_fp" %}<span class="badge badge-warning">Likely FP</span>
+                  {% else %}<span class="badge badge-success">Real</span>{% endif %}
+                </td>
+                <td>
+                  {% if f.llm_score is not None %}
+                    <div class="progress" style="height:16px;min-width:60px;">
+                      <div class="progress-bar {% if f.llm_score >= 70 %}bg-danger{% elif f.llm_score >= 40 %}bg-warning{% else %}bg-secondary{% endif %}"
+                        role="progressbar" style="width:{{ f.llm_score }}%">{{ f.llm_score }}</div>
+                    </div>
+                  {% else %}
+                    <span class="text-muted">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if f.verdict == "signal" %}<span class="badge badge-warning">SIGNAL</span>
+                  {% elif f.verdict == "false_positive" %}<span class="badge badge-danger">FP</span>
+                  {% elif f.verdict == "noise" %}<span class="badge badge-secondary">NOISE</span>
+                  {% else %}<span class="badge badge-info">{{ f.verdict|default:"—" }}</span>{% endif %}
+                </td>
+                <td><small class="text-muted">{{ f.next_test|default:""|truncatechars:80 }}</small></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+
+    </div>
+  </section>
+</div>
+{% endblock %}

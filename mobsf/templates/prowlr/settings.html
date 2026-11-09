@@ -1,0 +1,118 @@
+{% extends "base/base_layout.html" %}
+{% block title %}ProwlrBot Settings{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+  <section class="content-header">
+    <div class="container-fluid">
+      <h1><i class="fas fa-cog mr-2"></i>ProwlrBot Settings</h1>
+    </div>
+  </section>
+  <section class="content">
+    <div class="container-fluid">
+
+      {% if saved %}
+      <div class="alert alert-success alert-dismissible fade show">
+        <i class="fas fa-check-circle mr-2"></i>Settings saved.
+        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+      </div>
+      {% endif %}
+      {% if error %}
+      <div class="alert alert-danger alert-dismissible fade show">
+        <i class="fas fa-exclamation-triangle mr-2"></i>{{ error }}
+        <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+      </div>
+      {% endif %}
+
+      <div class="row">
+        <!-- LLM Config -->
+        <div class="col-md-7">
+          <div class="card card-outline card-primary">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-brain mr-2"></i>LLM Triage Provider</h3></div>
+            <div class="card-body">
+              <form method="post">
+                {% csrf_token %}
+                <div class="form-group">
+                  <label>Provider</label>
+                  <select name="provider" class="form-control">
+                    {% for p in providers %}
+                    <option value="{{ p }}" {% if cfg.provider == p %}selected{% endif %}>{{ p }}</option>
+                    {% endfor %}
+                  </select>
+                  <small class="form-text text-muted">auto = probe lmstudio → ollama → rule-based fallback</small>
+                </div>
+                <div class="form-group">
+                  <label>Base URL <small class="text-muted">(leave blank for provider default)</small></label>
+                  <input type="text" name="base_url" class="form-control" value="{{ cfg.base_url }}"
+                    placeholder="e.g. http://localhost:1234/v1">
+                </div>
+                <div class="form-group">
+                  <label>Model</label>
+                  <input type="text" name="model" class="form-control" value="{{ cfg.model }}"
+                    placeholder="e.g. hermes3, gpt-4o-mini, claude-haiku-4-5">
+                </div>
+                <div class="form-group">
+                  <label>API Key <small class="text-muted">(not needed for lmstudio/ollama; leave blank to keep existing)</small></label>
+                  <input type="password" name="api_key" class="form-control" placeholder="sk-... or enter to update">
+                </div>
+                <div class="form-group">
+                  <label>Timeout (seconds)</label>
+                  <input type="number" name="timeout" class="form-control" value="{{ cfg.timeout }}" min="5" max="300">
+                </div>
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>Save</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status panel -->
+        <div class="col-md-5">
+          <div class="card card-outline card-info">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-info-circle mr-2"></i>Current Status</h3></div>
+            <div class="card-body">
+              {% if status %}
+              <table class="table table-sm table-bordered">
+                <tbody>
+                  <tr><td>Provider</td><td><strong>{{ status.provider }}</strong></td></tr>
+                  <tr><td>Model</td><td><code>{{ status.model|default:"(default)" }}</code></td></tr>
+                  <tr><td>Base URL</td><td><small><code>{{ status.base_url|default:"(provider default)" }}</code></small></td></tr>
+                  <tr><td>API Key</td>
+                      <td>{% if status.api_key_set %}<span class="badge badge-success">Set</span>{% else %}<span class="badge badge-secondary">Not set</span>{% endif %}</td></tr>
+                  <tr><td>Available</td>
+                      <td>{% if status.available %}<span class="badge badge-success">Yes</span>{% else %}<span class="badge badge-warning">Rule-based only</span>{% endif %}</td></tr>
+                  <tr><td>Config file</td><td><small><code>{{ status.config_file }}</code></small></td></tr>
+                </tbody>
+              </table>
+              {% else %}
+              <p class="text-muted">Could not load status.</p>
+              {% endif %}
+
+              <hr>
+              <p class="mb-1"><strong>Env var overrides (highest priority):</strong></p>
+              <ul class="small text-muted mb-0">
+                <li><code>MOBSF_LLM_PROVIDER</code></li>
+                <li><code>MOBSF_LLM_BASE_URL</code></li>
+                <li><code>MOBSF_LLM_MODEL</code></li>
+                <li><code>MOBSF_LLM_API_KEY</code></li>
+                <li><code>MOBSF_LLM_TIMEOUT</code></li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card card-outline card-secondary mt-3">
+            <div class="card-header"><h3 class="card-title"><i class="fas fa-link mr-2"></i>Quick Links</h3></div>
+            <div class="card-body">
+              <a href="{% url 'triage_home' %}" class="btn btn-outline-warning btn-block mb-2">
+                <i class="fas fa-filter mr-1"></i>Triage Dashboard
+              </a>
+              <a href="{% url 'binary_intel' %}" class="btn btn-outline-info btn-block">
+                <i class="fas fa-microchip mr-1"></i>Binary Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+{% endblock %}

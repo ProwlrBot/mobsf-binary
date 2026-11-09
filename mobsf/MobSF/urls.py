@@ -47,6 +47,10 @@ from mobsf.StaticAnalyzer.views.common.binary_intel import (
     binary_intel_home,
     binary_intel_scan,
 )
+from mobsf.StaticAnalyzer.views.common.prowlr_views import (
+    prowlr_settings,
+    triage_view,
+)
 from mobsf.StaticAnalyzer import tests
 from mobsf.StaticAnalyzer.views.common import (
     appsec,
@@ -507,6 +511,10 @@ if not settings.API_ONLY:
         re_path(fr'^ios/view_report_device/{bundle_id_regex}',
                 device_report.view_report_device,
                 name='view_report_device'),
+        # ProwlrBot Settings + Triage
+        re_path(r'^settings/$', prowlr_settings, name='prowlr_settings'),
+        re_path(r'^triage/$', triage_view, name='triage_home'),
+        re_path(r'^triage/(?P<scan_hash>[0-9a-f]{32})/$', triage_view, name='triage_scan'),
         # Binary Intelligence
         re_path(r'^binary_intel/$', binary_intel_home, name='binary_intel'),
         re_path(r'^binary_intel/scan/$', binary_intel_scan, name='binary_intel_scan'),
