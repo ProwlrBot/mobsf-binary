@@ -130,7 +130,13 @@ TOOLS: list[mcp_types.Tool] = [
         ),
         inputSchema={
             'type': 'object',
-            'properties': {'hash': {'type': 'string'}},
+            'properties': {
+                'hash': {'type': 'string'},
+                'scan_type': {
+                    'type': 'string',
+                    'description': 'Scan type: apk, ipa, zip, appx, exe, dll (default: apk)',
+                },
+            },
             'required': ['hash'],
         },
     ),
@@ -182,6 +188,94 @@ TOOLS: list[mcp_types.Tool] = [
         inputSchema={
             'type': 'object',
             'properties': {'hash': {'type': 'string'}},
+            'required': ['hash'],
+        },
+    ),
+    mcp_types.Tool(
+        name='mobsf_jwt_scan',
+        description=(
+            'Scan a list of strings for embedded JWT tokens and audit them '
+            'for alg:none, RS256→HS256 confusion, missing expiry, and sensitive payload fields.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'strings': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'Strings extracted from an APK/IPA binary or source.',
+                },
+            },
+            'required': ['strings'],
+        },
+    ),
+    mcp_types.Tool(
+        name='mobsf_signing_check',
+        description=(
+            'Score an APK signing configuration. Detects Janus (CVE-2017-13156) on '
+            'V1-only signed APKs and reports V2/V3/V4 scheme presence.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'signing_info': {
+                    'type': 'object',
+                    'description': 'Signing info dict from MobSF cert analysis output.',
+                },
+            },
+            'required': ['signing_info'],
+        },
+    ),
+    mcp_types.Tool(
+        name='mobsf_cve_lookup',
+        description=(
+            'Look up CVEs for versioned SBOM dependencies via OSV.dev. '
+            'Returns CVE IDs, CVSS scores, severity, and fixed versions.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'entries': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'name': {'type': 'string'},
+                            'version': {'type': 'string'},
+                            'ecosystem': {'type': 'string'},
+                        },
+                        'required': ['name', 'version'],
+                    },
+                    'description': 'List of {name, version} dependency entries.',
+                },
+                'ecosystem': {
+                    'type': 'string',
+                    'description': 'Default OSV ecosystem (e.g. Maven, npm, PyPI)',
+                },
+            },
+            'required': ['entries'],
+        },
+    ),
+    mcp_types.Tool(
+        name='mobsf_get_native_paths',
+        description=(
+            'Get filesystem paths of native libraries (.so, .dylib, .dll, .exe) '
+            'extracted from a MobSF scan. Pass these paths to REA open_binary() for '
+            'deep analysis with Ghidra, Binary Ninja, r2, or other RE backends.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'hash': {
+                    'type': 'string',
+                    'description': 'MD5 scan hash from mobsf_upload.',
+                },
+                'extensions': {
+                    'type': 'array',
+                    'items': {'type': 'string'},
+                    'description': 'Filter by extension (e.g. [".so", ".dll"]). Default: all native.',
+                },
+            },
             'required': ['hash'],
         },
     ),
@@ -321,6 +415,43 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
             result = await _post('/api/v1/delete_scan', {
                 'hash': arguments['hash'],
             })
+
+        elif name == 'mobsf_jwt_scan':
+            from mobsf.StaticAnalyzer.views.common.jwt_analysis import analyze_jwts
+            result = analyze_jwts(arguments.get('strings', []))
+
+        elif name == 'mobsf_signing_check':
+            from mobsf.StaticAnalyzer.views.android.cert_analysis import score_signing_security
+            result = score_signing_security(arguments.get('signing_info', {}))
+
+        elif name == 'mobsf_cve_lookup':
+            from mobsf.StaticAnalyzer.views.common.sbom_cve import correlate_sbom_cves
+            result = correlate_sbom_cves(
+                arguments.get('entries', []),
+                ecosystem_hint=arguments.get('ecosystem', ''),
+            )
+
+        elif name == 'mobsf_get_native_paths':
+            from django.conf import settings
+            scan_hash = arguments['hash']
+            exts = set(arguments.get('extensions') or ['.so', '.dylib', '.dll', '.exe', '.a'])
+            scan_dir = Path(settings.UPLD_DIR) / scan_hash
+            if not scan_dir.exists():
+                result = {'error': f'Scan directory not found: {scan_hash}'}
+            else:
+                paths = [
+                    str(p) for p in scan_dir.rglob('*')
+                    if p.suffix.lower() in exts and p.is_file()
+                ]
+                result = {
+                    'scan_dir': str(scan_dir),
+                    'native_libs': sorted(paths),
+                    'count': len(paths),
+                    'hint': (
+                        'Pass each path to REA open_binary() for deep analysis. '
+                        'REA wraps Ghidra, Binary Ninja, r2, frida, and other RE backends.'
+                    ),
+                }
 
         elif name == 'mobsf_vulnx_lookup':
             from mobsf.StaticAnalyzer.views.common.vulnx_bridge import (
