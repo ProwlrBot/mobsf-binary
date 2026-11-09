@@ -21,37 +21,57 @@ CSS = """
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{background:#08090a;color:#e8e8e8;font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;min-height:100vh}
 .container{max-width:1200px;margin:0 auto;padding:24px 16px}
+
+/* header */
 .header{border-bottom:1px solid #1a1d20;padding-bottom:20px;margin-bottom:24px}
 .header h1{font-size:22px;font-weight:700;letter-spacing:-0.3px;color:#e8e8e8}
 .header h1 span{color:#e4f222}
 .header-meta{color:#666;font-size:12px;font-family:'JetBrains Mono','Fira Code',monospace;margin-top:4px}
-.llm-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:6px;margin-bottom:20px;font-size:12px;border:1px solid #1a1d20;background:#0f1012}
+
+/* llm banner */
+.llm-banner{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:6px;margin-bottom:20px;font-size:12px;border:1px solid #1a1d20;background:#0f1012;flex-wrap:wrap}
 .llm-banner.active{border-color:#e4f222;color:#e4f222}
 .llm-banner.inactive{color:#666}
 .llm-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .llm-banner.active .llm-dot{background:#e4f222;box-shadow:0 0 6px #e4f222}
 .llm-banner.inactive .llm-dot{background:#333}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:24px}
+.llm-batch{margin-left:auto;font-size:11px;opacity:0.7}
+
+/* stats row */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:16px}
 .stat-card{background:#0f1012;border:1px solid #1a1d20;border-radius:8px;padding:14px 16px}
-.stat-card .stat-num{font-size:28px;font-weight:700;line-height:1;font-family:'JetBrains Mono','Fira Code',monospace}
+.stat-card .stat-num{font-size:26px;font-weight:700;line-height:1;font-family:'JetBrains Mono','Fira Code',monospace}
 .stat-card .stat-label{color:#666;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
 .stat-p1 .stat-num{color:#ff4444}
 .stat-p2 .stat-num{color:#ff8800}
 .stat-p3 .stat-num{color:#e4f222}
 .stat-noise .stat-num{color:#555}
 .stat-total .stat-num{color:#e8e8e8}
-.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.search-box{flex:1;min-width:200px;background:#0f1012;border:1px solid #1a1d20;border-radius:6px;padding:8px 12px;color:#e8e8e8;font-size:13px;outline:none;transition:border-color 0.2s}
+
+/* progress bar */
+.progress-row{margin-bottom:20px;background:#0f1012;border:1px solid #1a1d20;border-radius:8px;padding:12px 16px}
+.progress-label{font-size:11px;color:#666;margin-bottom:6px;display:flex;justify-content:space-between}
+.progress-track{height:4px;background:#1a1d20;border-radius:2px;overflow:hidden;position:relative}
+.progress-fill{height:100%;background:#e4f222;border-radius:2px;transition:width 0.3s}
+.progress-counts{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.prog-pill{font-size:11px;font-family:'JetBrains Mono',monospace}
+.prog-proven{color:#44ff88}
+.prog-reported{color:#e4f222}
+.prog-investigating{color:#ff8800}
+.prog-disproven{color:#ff4444}
+
+/* toolbar */
+.toolbar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-box{flex:1;min-width:180px;background:#0f1012;border:1px solid #1a1d20;border-radius:6px;padding:7px 12px;color:#e8e8e8;font-size:13px;outline:none;transition:border-color 0.2s}
 .search-box:focus{border-color:#e4f222}
 .search-box::placeholder{color:#444}
-.filter-btn{padding:7px 14px;border-radius:5px;border:1px solid #1a1d20;background:#0f1012;color:#666;font-size:12px;cursor:pointer;font-weight:600;letter-spacing:0.3px;transition:all 0.15s}
-.filter-btn:hover,.filter-btn.active{background:#1a1d20;color:#e8e8e8}
-.filter-btn.active.f-p1{border-color:#ff4444;color:#ff4444}
-.filter-btn.active.f-p2{border-color:#ff8800;color:#ff8800}
-.filter-btn.active.f-p3{border-color:#e4f222;color:#e4f222}
-.filter-btn.active.f-noise{border-color:#555;color:#999}
+.filter-select{padding:7px 10px;border-radius:5px;border:1px solid #1a1d20;background:#0f1012;color:#888;font-size:12px;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;padding-right:24px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.filter-select:focus{border-color:#e4f222;color:#e8e8e8}
 .btn-export{margin-left:auto;padding:7px 14px;background:#e4f222;color:#08090a;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px}
 .btn-export:hover{background:#f0f830}
+.vis-count{color:#555;font-size:11px;font-family:monospace;white-space:nowrap}
+
+/* finding cards */
 .findings{display:flex;flex-direction:column;gap:10px}
 .finding-card{background:#0f1012;border:1px solid #1a1d20;border-radius:8px;overflow:hidden;transition:border-color 0.15s}
 .finding-card:hover{border-color:#2a2d30}
@@ -59,40 +79,80 @@ body{background:#08090a;color:#e8e8e8;font-family:'Inter',system-ui,sans-serif;f
 .finding-card.p2{border-left:3px solid #ff8800}
 .finding-card.p3{border-left:3px solid #e4f222}
 .finding-card.noise{border-left:3px solid #333;opacity:0.7}
-.card-header{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none}
+.finding-card[data-status="proven"]{border-left-color:#44ff88!important;opacity:1}
+.finding-card[data-status="disproven"]{border-left-color:#ff4444!important;opacity:0.5}
+.finding-card[data-status="reported"]{border-left-color:#e4f222!important}
+.card-header{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none;flex-wrap:wrap}
 .card-header:hover{background:rgba(255,255,255,0.02)}
 .priority-badge{font-size:10px;font-weight:800;padding:3px 7px;border-radius:3px;letter-spacing:0.5px;flex-shrink:0;font-family:'JetBrains Mono',monospace}
 .badge-p1{background:rgba(255,68,68,0.15);color:#ff4444;border:1px solid rgba(255,68,68,0.3)}
 .badge-p2{background:rgba(255,136,0,0.15);color:#ff8800;border:1px solid rgba(255,136,0,0.3)}
 .badge-p3{background:rgba(228,242,34,0.1);color:#e4f222;border:1px solid rgba(228,242,34,0.2)}
 .badge-noise{background:rgba(255,255,255,0.03);color:#555;border:1px solid #222}
-.score-pill{font-size:11px;font-family:'JetBrains Mono',monospace;color:#666;border:1px solid #1a1d20;border-radius:3px;padding:2px 6px}
-.fp-pill{font-size:10px;padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace}
+.score-pill{font-size:11px;font-family:'JetBrains Mono',monospace;color:#666;border:1px solid #1a1d20;border-radius:3px;padding:2px 6px;flex-shrink:0}
+.fp-pill{font-size:10px;padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;flex-shrink:0}
 .fp-high{background:rgba(255,68,68,0.08);color:#ff6666;border:1px solid rgba(255,68,68,0.15)}
 .fp-medium{background:rgba(255,136,0,0.08);color:#ff9922;border:1px solid rgba(255,136,0,0.15)}
 .fp-low{background:rgba(68,255,68,0.08);color:#44ff88;border:1px solid rgba(68,255,68,0.15)}
-.card-title{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.expand-icon{color:#444;font-size:11px;flex-shrink:0;transition:transform 0.2s}
-.card-body{padding:0 16px 14px;display:none}
+.masvs-badge{font-size:10px;padding:2px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-weight:600;flex-shrink:0}
+.masvs-STORAGE{background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.2)}
+.masvs-CRYPTO{background:rgba(168,85,247,0.1);color:#c084fc;border:1px solid rgba(168,85,247,0.2)}
+.masvs-AUTH{background:rgba(249,115,22,0.1);color:#fb923c;border:1px solid rgba(249,115,22,0.2)}
+.masvs-NETWORK{background:rgba(20,184,166,0.1);color:#2dd4bf;border:1px solid rgba(20,184,166,0.2)}
+.masvs-PLATFORM{background:rgba(6,182,212,0.1);color:#22d3ee;border:1px solid rgba(6,182,212,0.2)}
+.masvs-CODE{background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2)}
+.masvs-RESILIENCE{background:rgba(234,179,8,0.1);color:#facc15;border:1px solid rgba(234,179,8,0.2)}
+.masvs-PRIVACY{background:rgba(236,72,153,0.1);color:#f472b6;border:1px solid rgba(236,72,153,0.2)}
+.masvs-default{background:rgba(107,114,128,0.1);color:#9ca3af;border:1px solid rgba(107,114,128,0.2)}
+.status-badge{font-size:10px;padding:2px 7px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-weight:600;flex-shrink:0}
+.status-noise{background:#111;color:#444;border:1px solid #222}
+.status-investigating{background:rgba(255,136,0,0.1);color:#ff8800;border:1px solid rgba(255,136,0,0.3)}
+.status-proven{background:rgba(68,255,136,0.1);color:#44ff88;border:1px solid rgba(68,255,136,0.3)}
+.status-disproven{background:rgba(255,68,68,0.1);color:#ff4444;border:1px solid rgba(255,68,68,0.3)}
+.status-reported{background:rgba(228,242,34,0.1);color:#e4f222;border:1px solid rgba(228,242,34,0.3)}
+.card-title{flex:1;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:100px}
+.expand-icon{color:#444;font-size:11px;flex-shrink:0}
+
+/* card body */
+.card-body{padding:0 14px 14px;display:none}
 .card-body.open{display:block}
 .card-file{font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;color:#555;margin-bottom:10px;padding:6px 10px;background:#08090a;border-radius:4px;border:1px solid #1a1d20;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .card-reasoning{font-size:12px;color:#aaa;margin-bottom:10px;line-height:1.6;padding:8px 10px;border-left:2px solid #1a1d20}
 .card-chain{font-size:12px;color:#e4f222;margin-bottom:10px;padding:8px 10px;border-left:2px solid #e4f222;background:rgba(228,242,34,0.03);border-radius:0 4px 4px 0}
-.action-block{position:relative}
+.action-block{position:relative;margin-bottom:10px}
 .action-block pre{font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;background:#08090a;border:1px solid #1a1d20;border-radius:5px;padding:10px 36px 10px 12px;overflow-x:auto;color:#a8d8a8;white-space:pre-wrap;word-break:break-all;line-height:1.5}
 .copy-btn{position:absolute;right:8px;top:8px;background:transparent;border:1px solid #2a2d30;border-radius:4px;padding:3px 7px;color:#555;font-size:10px;cursor:pointer;transition:all 0.15s}
 .copy-btn:hover{border-color:#e4f222;color:#e4f222}
 .copy-btn.copied{color:#44ff88;border-color:#44ff88}
-.no-action{color:#333;font-size:11px;font-style:italic;padding:8px 10px;border:1px solid #1a1d20;border-radius:5px;background:#08090a}
+.no-action{color:#333;font-size:11px;font-style:italic;padding:8px 10px;border:1px solid #1a1d20;border-radius:5px;background:#08090a;margin-bottom:10px}
+
+/* status controls */
+.card-controls{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.ctrl-label{font-size:11px;color:#555;font-family:'JetBrains Mono',monospace}
+.status-select{background:#0f1012;border:1px solid #1a1d20;border-radius:4px;color:#e8e8e8;font-size:11px;padding:4px 8px;cursor:pointer;outline:none}
+.status-select:focus{border-color:#e4f222}
+.btn-proven{padding:4px 10px;background:rgba(68,255,136,0.08);border:1px solid rgba(68,255,136,0.25);border-radius:4px;color:#44ff88;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s}
+.btn-proven:hover{background:rgba(68,255,136,0.15);border-color:#44ff88}
+.btn-disproven{padding:4px 10px;background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.25);border-radius:4px;color:#ff4444;font-size:11px;font-weight:700;cursor:pointer;transition:all 0.15s}
+.btn-disproven:hover{background:rgba(255,68,68,0.15);border-color:#ff4444}
+
+/* notes */
+.notes-block{margin-bottom:10px}
+.notes-label{font-size:11px;color:#555;margin-bottom:4px}
+.notes-area{width:100%;min-height:52px;background:#08090a;border:1px solid #1a1d20;border-radius:4px;color:#aaa;font-size:12px;padding:8px;resize:vertical;outline:none;font-family:'Inter',system-ui,sans-serif;line-height:1.5}
+.notes-area:focus{border-color:#e4f222}
+.notes-area::placeholder{color:#333}
+
 .hidden{display:none!important}
 .empty-state{text-align:center;padding:60px 20px;color:#333;font-size:14px}
 .footer{margin-top:40px;padding-top:20px;border-top:1px solid #1a1d20;color:#333;font-size:11px;font-family:'JetBrains Mono',monospace;display:flex;justify-content:space-between}
+
 @media print{
   body{background:#fff;color:#000}
   .finding-card{border:1px solid #ccc;page-break-inside:avoid}
-  .toolbar,.btn-export,.copy-btn{display:none}
+  .toolbar,.btn-export,.copy-btn,.card-controls,.notes-area{display:none}
   .card-body{display:block!important}
-  .finding-card.noise{display:none}
+  .finding-card[data-status="disproven"],.finding-card[data-status="noise"]{display:none}
 }
 """
 
@@ -100,36 +160,95 @@ body{background:#08090a;color:#e8e8e8;font-family:'Inter',system-ui,sans-serif;f
 
 JS = r"""
 (function(){
-  var STORAGE_KEY='mobsf_triage_filters';
-  var activeFilters=new Set(JSON.parse(localStorage.getItem(STORAGE_KEY)||'["P1","P2","P3","noise"]'));
+  var STORE='mobsf_triage_v2';
 
-  function saveFilters(){localStorage.setItem(STORAGE_KEY,JSON.stringify([...activeFilters]));}
+  function loadStore(){
+    try{return JSON.parse(localStorage.getItem(STORE)||'{}');}catch(e){return {};}
+  }
+  function saveStore(s){localStorage.setItem(STORE,JSON.stringify(s));}
 
-  function applyFilters(){
-    var q=(document.getElementById('search-box').value||'').toLowerCase();
-    document.querySelectorAll('.finding-card').forEach(function(c){
-      var pri=c.dataset.priority;
-      var txt=c.textContent.toLowerCase();
-      var matchFilter=activeFilters.has(pri);
-      var matchSearch=!q||txt.includes(q);
-      c.classList.toggle('hidden',!(matchFilter&&matchSearch));
-    });
-    var vis=document.querySelectorAll('.finding-card:not(.hidden)').length;
-    document.getElementById('visible-count').textContent=vis+' findings';
+  // Simple djb2 hash for localStorage keys
+  function hashKey(s){
+    var h=5381;
+    for(var i=0;i<s.length;i++){h=((h<<5)+h)^s.charCodeAt(i);}
+    return (h>>>0).toString(16);
   }
 
-  document.querySelectorAll('.filter-btn[data-filter]').forEach(function(btn){
-    var f=btn.dataset.filter;
-    if(activeFilters.has(f))btn.classList.add('active');
-    btn.addEventListener('click',function(){
-      if(activeFilters.has(f)){activeFilters.delete(f);btn.classList.remove('active');}
-      else{activeFilters.add(f);btn.classList.add('active');}
-      saveFilters();applyFilters();
+  var store=loadStore();
+
+  /* ── restore persisted state ── */
+  document.querySelectorAll('.finding-card').forEach(function(card){
+    var key=card.dataset.key;
+    if(!key)return;
+    var saved=store[key]||{};
+    if(saved.status){
+      card.dataset.status=saved.status;
+      var sel=card.querySelector('.status-select');
+      if(sel)sel.value=saved.status;
+      updateStatusBadge(card,saved.status);
+    }
+    if(saved.notes){
+      var ta=card.querySelector('.notes-area');
+      if(ta)ta.value=saved.notes;
+    }
+  });
+
+  function updateStatusBadge(card,status){
+    var badge=card.querySelector('.status-badge');
+    if(!badge)return;
+    badge.className='status-badge status-'+status;
+    var labels={noise:'noise',investigating:'investigating',proven:'proven',disproven:'disproven',reported:'reported'};
+    badge.textContent=labels[status]||status;
+  }
+
+  function setStatus(card,status){
+    var key=card.dataset.key;
+    card.dataset.status=status;
+    var saved=store[key]||{};
+    saved.status=status;
+    store[key]=saved;
+    saveStore(store);
+    updateStatusBadge(card,status);
+    var sel=card.querySelector('.status-select');
+    if(sel)sel.value=status;
+    updateProgress();
+    applyFilters();
+  }
+
+  /* ── controls wiring ── */
+  document.querySelectorAll('.status-select').forEach(function(sel){
+    sel.addEventListener('change',function(e){
+      e.stopPropagation();
+      setStatus(sel.closest('.finding-card'),sel.value);
+    });
+  });
+  document.querySelectorAll('.btn-proven').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      setStatus(btn.closest('.finding-card'),'proven');
+    });
+  });
+  document.querySelectorAll('.btn-disproven').forEach(function(btn){
+    btn.addEventListener('click',function(e){
+      e.stopPropagation();
+      setStatus(btn.closest('.finding-card'),'disproven');
     });
   });
 
-  document.getElementById('search-box').addEventListener('input',applyFilters);
+  /* ── notes ── */
+  document.querySelectorAll('.notes-area').forEach(function(ta){
+    ta.addEventListener('input',function(){
+      var card=ta.closest('.finding-card');
+      var key=card.dataset.key;
+      var saved=store[key]||{};
+      saved.notes=ta.value;
+      store[key]=saved;
+      saveStore(store);
+    });
+    ta.addEventListener('click',function(e){e.stopPropagation();});
+  });
 
+  /* ── expand/collapse ── */
   document.querySelectorAll('.card-header').forEach(function(h){
     h.addEventListener('click',function(){
       var body=h.nextElementSibling;
@@ -139,6 +258,7 @@ JS = r"""
     });
   });
 
+  /* ── copy buttons ── */
   document.querySelectorAll('.copy-btn').forEach(function(btn){
     btn.addEventListener('click',function(e){
       e.stopPropagation();
@@ -150,26 +270,79 @@ JS = r"""
     });
   });
 
+  /* ── filters ── */
+  function applyFilters(){
+    var q=(document.getElementById('search-box').value||'').toLowerCase();
+    var pri=document.getElementById('filter-priority').value;
+    var sta=document.getElementById('filter-status').value;
+    var vis=0;
+    document.querySelectorAll('.finding-card').forEach(function(c){
+      var matchPri=pri==='all'||c.dataset.priority===pri;
+      var matchSta=sta==='all'||c.dataset.status===sta;
+      var matchQ=!q||c.textContent.toLowerCase().includes(q);
+      var show=matchPri&&matchSta&&matchQ;
+      c.classList.toggle('hidden',!show);
+      if(show)vis++;
+    });
+    document.getElementById('visible-count').textContent=vis+' findings';
+  }
+
+  document.getElementById('filter-priority').addEventListener('change',applyFilters);
+  document.getElementById('filter-status').addEventListener('change',applyFilters);
+  document.getElementById('search-box').addEventListener('input',applyFilters);
+
+  /* ── progress ── */
+  function updateProgress(){
+    var total=document.querySelectorAll('.finding-card').length;
+    var proven=document.querySelectorAll('.finding-card[data-status="proven"]').length;
+    var reported=document.querySelectorAll('.finding-card[data-status="reported"]').length;
+    var investigating=document.querySelectorAll('.finding-card[data-status="investigating"]').length;
+    var disproven=document.querySelectorAll('.finding-card[data-status="disproven"]').length;
+    var triaged=proven+reported+disproven;
+    var pct=total>0?Math.round(triaged/total*100):0;
+    var fill=document.getElementById('prog-fill');
+    if(fill)fill.style.width=pct+'%';
+    var label=document.getElementById('prog-label');
+    if(label)label.textContent=triaged+'/'+total+' triaged ('+pct+'%)';
+    var el;
+    if((el=document.getElementById('prog-proven')))el.textContent=proven+' proven';
+    if((el=document.getElementById('prog-reported')))el.textContent=reported+' reported';
+    if((el=document.getElementById('prog-investigating')))el.textContent=investigating+' investigating';
+    if((el=document.getElementById('prog-disproven')))el.textContent=disproven+' disproven';
+  }
+
+  /* ── export JSON ── */
   document.getElementById('btn-export').addEventListener('click',function(){
-    var lines=['# MobSF Triage Export\n'];
-    document.querySelectorAll('.finding-card.p1,.finding-card.p2').forEach(function(c){
-      var title=c.querySelector('.card-title').textContent;
-      var pri=c.dataset.priority;
-      var score=c.dataset.score;
+    var out=[];
+    document.querySelectorAll('.finding-card').forEach(function(c){
+      var key=c.dataset.key||'';
+      var saved=store[key]||{};
+      var title=c.querySelector('.card-title').textContent.trim();
+      var file=c.querySelector('.card-file');
       var reasoning=c.querySelector('.card-reasoning');
       var action=c.querySelector('.action-block pre');
-      lines.push('## ['+pri+'] '+title);
-      lines.push('**Bounty score:** '+score+'/100');
-      if(reasoning)lines.push('**Analysis:** '+reasoning.textContent.trim());
-      if(action)lines.push('```\n'+action.textContent.trim()+'\n```');
-      lines.push('');
+      var mavsEl=c.querySelector('.masvs-badge');
+      out.push({
+        title:title,
+        file:file?file.textContent.trim():'',
+        priority:c.dataset.priority||'',
+        bounty_score:parseInt(c.dataset.score||'0',10),
+        status:c.dataset.status||'noise',
+        fp_risk:(c.querySelector('.fp-pill')||{textContent:''}).textContent.replace('FP:',''),
+        reasoning:reasoning?reasoning.textContent.trim():'',
+        next_action:action?action.textContent.trim():'',
+        masvs_id:mavsEl?mavsEl.textContent:'',
+        notes:saved.notes||'',
+      });
     });
-    navigator.clipboard.writeText(lines.join('\n'));
+    var json=JSON.stringify(out,null,2);
+    navigator.clipboard.writeText(json);
     var btn=document.getElementById('btn-export');
-    btn.textContent='✓ Copied';
-    setTimeout(function(){btn.textContent='Export P1+P2';},2000);
+    btn.textContent='✓ Copied JSON';
+    setTimeout(function(){btn.textContent='Export JSON';},2000);
   });
 
+  updateProgress();
   applyFilters();
 })();
 """
@@ -178,9 +351,26 @@ JS = r"""
 
 PRIORITY_ORDER = {'P1': 0, 'P2': 1, 'P3': 2, 'noise': 3}
 
+MASVS_CATEGORIES = {
+    'STORAGE': 'STORAGE',
+    'CRYPTO': 'CRYPTO',
+    'AUTH': 'AUTH',
+    'NETWORK': 'NETWORK',
+    'PLATFORM': 'PLATFORM',
+    'CODE': 'CODE',
+    'RESILIENCE': 'RESILIENCE',
+    'PRIVACY': 'PRIVACY',
+}
+
 
 def _e(text: str) -> str:
     return _html.escape(str(text), quote=True)
+
+
+def _hashkey(title: str, file_path: str) -> str:
+    """Simple stable key for a finding — used as localStorage key in JS."""
+    import hashlib
+    return hashlib.sha1(f'{title}::{file_path}'.encode()).hexdigest()[:12]
 
 
 def _priority_badge(priority: str) -> str:
@@ -191,6 +381,18 @@ def _priority_badge(priority: str) -> str:
 def _fp_pill(fp_risk: str) -> str:
     cls = {'low': 'fp-low', 'medium': 'fp-medium', 'high': 'fp-high'}.get(fp_risk, 'fp-medium')
     return f'<span class="fp-pill {cls}">FP:{_e(fp_risk)}</span>'
+
+
+def _masvs_badge(masvs_id: str) -> str:
+    if not masvs_id:
+        return ''
+    category = masvs_id.split('-')[0].upper()
+    css_cls = MASVS_CATEGORIES.get(category, 'default')
+    return f'<span class="masvs-badge masvs-{_e(css_cls)}">{_e(masvs_id)}</span>'
+
+
+def _status_badge(status: str = 'noise') -> str:
+    return f'<span class="status-badge status-{_e(status)}">{_e(status)}</span>'
 
 
 def _normalize_priority(finding: dict) -> str:
@@ -215,6 +417,8 @@ def _finding_card(finding: dict) -> str:
     reasoning = triage.get('reasoning', '') or fp_filter.get('reason', '')
     next_action = triage.get('next_action', '')
     chain = triage.get('exploitation_path', '')
+    masvs_id = triage.get('masvs_id', '') or fp_filter.get('masvs_id', '') or finding.get('masvs_id', '')
+    card_key = _hashkey(title, file_path)
 
     if next_action:
         action_html = (
@@ -227,22 +431,50 @@ def _finding_card(finding: dict) -> str:
         action_html = '<div class="no-action">— next action not generated (no LLM or noise finding) —</div>'
 
     chain_html = f'<div class="card-chain">&#9889; {_e(chain)}</div>' if chain else ''
+    masvs_html = _masvs_badge(masvs_id)
+
+    status_select = (
+        '<select class="status-select" onclick="event.stopPropagation()">'
+        '<option value="noise">noise</option>'
+        '<option value="investigating">investigating</option>'
+        '<option value="proven">proven</option>'
+        '<option value="disproven">disproven</option>'
+        '<option value="reported">reported</option>'
+        '</select>'
+    )
 
     return (
         f'<div class="finding-card {priority.lower()}" '
-        f'data-priority="{_e(priority)}" data-score="{_e(str(score))}">'
+        f'data-priority="{_e(priority)}" data-score="{_e(str(score))}" '
+        f'data-status="noise" data-key="{_e(card_key)}">'
+        # header
         f'<div class="card-header">'
         f'{_priority_badge(priority)}'
         f'<span class="score-pill">{_e(str(score))}/100</span>'
         f'{_fp_pill(fp_risk)}'
+        f'{masvs_html}'
+        f'{_status_badge()}'
         f'<span class="card-title">{_e(title)}</span>'
         f'<span class="expand-icon">&#9660;</span>'
         f'</div>'
+        # body
         f'<div class="card-body">'
         f'<div class="card-file">{_e(file_path or "—")}</div>'
         f'<div class="card-reasoning">{_e(reasoning)}</div>'
         f'{chain_html}'
         f'{action_html}'
+        # status controls
+        f'<div class="card-controls">'
+        f'<span class="ctrl-label">Status:</span>'
+        f'{status_select}'
+        f'<button class="btn-proven">&#10003; Proven</button>'
+        f'<button class="btn-disproven">&#10007; Disproven</button>'
+        f'</div>'
+        # analyst notes
+        f'<div class="notes-block">'
+        f'<div class="notes-label">Analyst notes</div>'
+        f'<textarea class="notes-area" placeholder="Add investigation notes…"></textarea>'
+        f'</div>'
         f'</div>'
         f'</div>'
     )
@@ -286,7 +518,12 @@ def generate_triage_report(
             top_score = s
     total = len(findings)
 
+    # LLM banner
     llm_active = llm.get('available', False) and llm.get('provider', 'none') != 'none'
+    batch_note = ''
+    if llm_active:
+        queued = llm.get('queued', 0)
+        batch_note = f'<span class="llm-batch">Batch mode: {queued} findings queued</span>'
     llm_text = (
         f"LLM active: {llm.get('provider', '?')} / {llm.get('model', '?')}"
         if llm_active
@@ -297,9 +534,11 @@ def generate_triage_report(
         f'<div class="llm-banner {llm_cls}">'
         f'<div class="llm-dot"></div>'
         f'<span>{_e(llm_text)}</span>'
+        f'{batch_note}'
         f'</div>'
     )
 
+    # Stats row
     stats_html = (
         f'<div class="stats">'
         f'<div class="stat-card stat-total"><div class="stat-num">{total}</div><div class="stat-label">Total</div></div>'
@@ -309,6 +548,46 @@ def generate_triage_report(
         f'<div class="stat-card stat-noise"><div class="stat-num">{counts["noise"]}</div><div class="stat-label">Noise</div></div>'
         f'<div class="stat-card"><div class="stat-num" style="color:#e4f222">{top_score}</div><div class="stat-label">Top Score</div></div>'
         f'</div>'
+    )
+
+    # Progress bar
+    progress_html = (
+        '<div class="progress-row">'
+        '<div class="progress-label">'
+        '<span id="prog-label">0/' + str(total) + ' triaged (0%)</span>'
+        '</div>'
+        '<div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>'
+        '<div class="progress-counts">'
+        '<span class="prog-pill prog-proven" id="prog-proven">0 proven</span>'
+        '<span class="prog-pill prog-reported" id="prog-reported">0 reported</span>'
+        '<span class="prog-pill prog-investigating" id="prog-investigating">0 investigating</span>'
+        '<span class="prog-pill prog-disproven" id="prog-disproven">0 disproven</span>'
+        '</div>'
+        '</div>'
+    )
+
+    # Toolbar — dropdowns instead of buttons
+    toolbar_html = (
+        '<div class="toolbar">'
+        '<input id="search-box" class="search-box" type="text" placeholder="Search findings…">'
+        '<select id="filter-priority" class="filter-select">'
+        '<option value="all">All priorities</option>'
+        '<option value="P1">P1</option>'
+        '<option value="P2">P2</option>'
+        '<option value="P3">P3</option>'
+        '<option value="noise">Noise</option>'
+        '</select>'
+        '<select id="filter-status" class="filter-select">'
+        '<option value="all">All statuses</option>'
+        '<option value="noise">noise</option>'
+        '<option value="investigating">investigating</option>'
+        '<option value="proven">proven</option>'
+        '<option value="disproven">disproven</option>'
+        '<option value="reported">reported</option>'
+        '</select>'
+        '<span id="visible-count" class="vis-count"></span>'
+        '<button class="btn-export" id="btn-export">Export JSON</button>'
+        '</div>'
     )
 
     cards_html = '\n'.join(_finding_card(f) for f in findings)
@@ -335,15 +614,8 @@ def generate_triage_report(
         f'<div class="header-meta">{_e(platform)} · {_e(pkg)} · v{_e(version)} · {_e(now)}</div></div>\n'
         f'{llm_banner}\n'
         f'{stats_html}\n'
-        '<div class="toolbar">\n'
-        '<input id="search-box" class="search-box" type="text" placeholder="Search findings…">\n'
-        '<button class="filter-btn f-p1" data-filter="P1">P1</button>\n'
-        '<button class="filter-btn f-p2" data-filter="P2">P2</button>\n'
-        '<button class="filter-btn f-p3" data-filter="P3">P3</button>\n'
-        '<button class="filter-btn f-noise" data-filter="noise">Noise</button>\n'
-        '<span id="visible-count" style="color:#555;font-size:11px;font-family:monospace"></span>\n'
-        '<button class="btn-export" id="btn-export">Export P1+P2</button>\n'
-        '</div>\n'
+        f'{progress_html}\n'
+        f'{toolbar_html}\n'
         f'<div class="findings">\n{cards_html}\n</div>\n'
         f'<div class="footer"><span>ProwlrBot / mobsf-binary</span><span>{_e(now)}</span></div>\n'
         '</div>\n'
