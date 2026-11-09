@@ -337,3 +337,89 @@ def api_delete_suppression(request):
     else:
         response = make_api_response(resp, 200)
     return response
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_sbom_cves(request):
+    """POST - Correlate SBOM entries with CVEs via OSV.dev.
+
+    POST body (JSON or form):
+      entries  - list of {"name": str, "version": str} dicts
+      ecosystem - optional override (e.g. "Maven", "npm")
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.sbom_cve import correlate_sbom_cves
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        entries = data.get('entries', [])
+        ecosystem = data.get('ecosystem', '')
+        if not isinstance(entries, list):
+            return make_api_response({'error': 'entries must be a list'}, 422)
+        result = correlate_sbom_cves(entries, ecosystem_hint=ecosystem)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_jwt_analysis(request):
+    """POST - Scan strings for embedded JWTs and audit security.
+
+    POST body (JSON or form):
+      strings - list of strings to scan for JWT tokens
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.jwt_analysis import analyze_jwts
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        strings = data.get('strings', [])
+        if not isinstance(strings, list):
+            return make_api_response({'error': 'strings must be a list'}, 422)
+        result = analyze_jwts(strings)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_vulnx_search(request):
+    """POST - Search ProjectDiscovery vulnx for CVEs by tech stack.
+
+    POST body (JSON or form):
+      tech_stack - list of {"name": str, "version": str} dicts
+      severity   - optional comma-separated filter (default: medium,high,critical)
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.vulnx_bridge import (
+        analyze_tech_stack,
+        _vulnx_available,
+    )
+    if not _vulnx_available():
+        return make_api_response(
+            {'error': 'vulnx not available',
+             'install': 'https://docs.projectdiscovery.io/tools/vulnx'}, 400)
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        tech_stack = data.get('tech_stack', [])
+        severity = data.get('severity', 'medium,high,critical')
+        if not isinstance(tech_stack, list):
+            return make_api_response({'error': 'tech_stack must be a list'}, 422)
+        result = analyze_tech_stack(tech_stack, severity_filter=severity)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
