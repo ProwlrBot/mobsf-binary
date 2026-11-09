@@ -43,6 +43,10 @@ from mobsf.MobSF.views.api.api_static_analysis import (
 from mobsf.MobSF.views.api import api_android_dynamic_analysis as api_dz
 from mobsf.MobSF.views.api import api_ios_dynamic_analysis as api_idz
 from mobsf.MobSF.views.api import api_ios_device_analysis as api_iddz
+from mobsf.StaticAnalyzer.views.common.binary_intel import (
+    binary_intel_home,
+    binary_intel_scan,
+)
 from mobsf.StaticAnalyzer import tests
 from mobsf.StaticAnalyzer.views.common import (
     appsec,
@@ -503,6 +507,9 @@ if not settings.API_ONLY:
         re_path(fr'^ios/view_report_device/{bundle_id_regex}',
                 device_report.view_report_device,
                 name='view_report_device'),
+        # Binary Intelligence
+        re_path(r'^binary_intel/$', binary_intel_home, name='binary_intel'),
+        re_path(r'^binary_intel/scan/$', binary_intel_scan, name='binary_intel_scan'),
         # Test
         re_path(r'^tests/$', tests.start_test),
     ])

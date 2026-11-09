@@ -1,0 +1,222 @@
+{% extends "base/base_layout.html" %}
+{% load static %}
+{% block title %}Binary Intelligence{% endblock %}
+{% block content %}
+<div class="content-wrapper">
+  <section class="content-header">
+    <div class="container-fluid">
+      <h1><i class="fas fa-microchip mr-2"></i>Binary Intelligence
+        <small class="text-muted ml-2">Standalone PE / ELF Scanner</small>
+      </h1>
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container-fluid">
+
+      <!-- Upload card -->
+      <div class="card card-outline card-primary">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-upload mr-2"></i>Upload Binary</h3>
+        </div>
+        <div class="card-body">
+          {% if error %}
+          <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle mr-2"></i>{{ error }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+          </div>
+          {% endif %}
+
+          <form method="post" action="{% url 'binary_intel_scan' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+              <label>Binary File</label>
+              <div class="custom-file">
+                <input type="file" class="custom-file-input" id="binary" name="binary"
+                  accept=".exe,.dll,.sys,.scr,.ocx,.so,.elf,.out" required>
+                <label class="custom-file-label" for="binary">Choose file…</label>
+              </div>
+              <small class="form-text text-muted">
+                Accepted: {% for ext in allowed_exts %}{{ ext }}{% if not forloop.last %} · {% endif %}{% endfor %} &nbsp;|&nbsp; Max 200 MB
+              </small>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-search mr-1"></i>Analyze
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {% if result %}
+      <!-- Summary row -->
+      <div class="row">
+        <div class="col-md-4">
+          <div class="info-box">
+            <span class="info-box-icon bg-primary"><i class="fas fa-file-code"></i></span>
+            <div class="info-box-content">
+              <span class="info-box-text">File</span>
+              <span class="info-box-number" style="font-size:0.9rem;word-break:break-all;">{{ result.filename }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="info-box">
+            <span class="info-box-icon bg-info"><i class="fas fa-weight-hanging"></i></span>
+            <div class="info-box-content">
+              <span class="info-box-text">Size / Type</span>
+              <span class="info-box-number">{{ result.filesize_kb }} KB &nbsp;|&nbsp; {{ result.arch }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="info-box">
+            <span class="info-box-icon bg-secondary"><i class="fas fa-fingerprint"></i></span>
+            <div class="info-box-content">
+              <span class="info-box-text">MD5</span>
+              <span class="info-box-number" style="font-size:0.85rem;font-family:monospace;">{{ result.md5 }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if result.error %}
+      <div class="alert alert-danger"><i class="fas fa-bug mr-2"></i>{{ result.error }}</div>
+      {% endif %}
+
+      <!-- Checksec -->
+      <div class="card card-outline card-warning">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-shield-alt mr-2"></i>Security Properties (checksec)</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button></div>
+        </div>
+        <div class="card-body">
+          {% if result.checksec %}
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="thead-dark"><tr><th>Property</th><th>Value</th></tr></thead>
+              <tbody>
+                {% for key, val in result.checksec.items %}
+                <tr>
+                  <td>{{ key }}</td>
+                  <td>
+                    {% if val == True or val == "True" or val == "enabled" or val == "present" %}
+                      <span class="badge badge-success">{{ val }}</span>
+                    {% elif val == False or val == "False" or val == "disabled" or val == "absent" %}
+                      <span class="badge badge-danger">{{ val }}</span>
+                    {% else %}
+                      <code>{{ val }}</code>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <p class="text-muted">No checksec data available.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- JWT findings -->
+      {% if result.jwt_findings %}
+      <div class="card card-outline card-danger">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-key mr-2"></i>JWT Tokens Found in Binary</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button></div>
+        </div>
+        <div class="card-body">
+          <table class="table table-bordered table-sm table-hover">
+            <thead class="thead-dark">
+              <tr><th>Algorithm</th><th>Header</th><th>Payload</th><th>Severity</th></tr>
+            </thead>
+            <tbody>
+              {% for jwt in result.jwt_findings %}
+              <tr>
+                <td><code>{{ jwt.algorithm }}</code></td>
+                <td><small><code>{{ jwt.header }}</code></small></td>
+                <td><small><code>{{ jwt.payload|truncatechars:160 }}</code></small></td>
+                <td>
+                  {% if jwt.severity == "high" %}<span class="badge badge-danger">HIGH</span>
+                  {% elif jwt.severity == "medium" %}<span class="badge badge-warning">MEDIUM</span>
+                  {% else %}<span class="badge badge-info">INFO</span>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- RPATH / shared libs -->
+      {% if result.extra %}
+      <div class="card card-outline card-warning">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-link mr-2"></i>ELF Dynamic Info</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-minus"></i></button></div>
+        </div>
+        <div class="card-body">
+          {% if result.extra.rpath_injection %}
+          <div class="alert alert-warning">
+            <strong>RPATH Injection Risk:</strong> <code>{{ result.extra.rpath_injection }}</code>
+          </div>
+          {% endif %}
+          {% if result.extra.shared_libs %}
+          <p><strong>Shared Libraries:</strong></p>
+          <ul>{% for lib in result.extra.shared_libs %}<li><code>{{ lib }}</code></li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Symbols -->
+      {% if result.symbols %}
+      <div class="card card-outline card-secondary">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-code mr-2"></i>Symbols (top 100)</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button></div>
+        </div>
+        <div class="card-body" style="display:none;">
+          <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+            <table class="table table-sm table-bordered">
+              <thead class="thead-dark"><tr><th>Symbol</th></tr></thead>
+              <tbody>
+                {% for sym in result.symbols %}
+                <tr><td><code>{{ sym }}</code></td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Strings sample -->
+      {% if result.strings_sample %}
+      <div class="card card-outline card-secondary">
+        <div class="card-header">
+          <h3 class="card-title"><i class="fas fa-font mr-2"></i>Strings Sample (top 50)</h3>
+          <div class="card-tools"><button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fas fa-plus"></i></button></div>
+        </div>
+        <div class="card-body" style="display:none;">
+          <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+            <table class="table table-sm table-bordered">
+              <thead class="thead-dark"><tr><th>String</th></tr></thead>
+              <tbody>
+                {% for s in result.strings_sample %}
+                <tr><td><code style="word-break:break-all;">{% if s.string %}{{ s.string }}{% else %}{{ s }}{% endif %}</code></td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      {% endif %}{# end result #}
+
+    </div>{# /container-fluid #}
+  </section>
+</div>
+{% endblock %}
