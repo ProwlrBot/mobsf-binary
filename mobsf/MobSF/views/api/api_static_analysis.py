@@ -423,3 +423,54 @@ def api_vulnx_search(request):
         return make_api_response(result, 200)
     except Exception as exp:
         return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_binary_findings(request):
+    """POST - Aggregate on-demand binary security findings for a completed scan.
+
+    Runs RPATH injection check on extracted ELF libs and returns a unified
+    findings dict. Complements the stored report with live tool-bridge analysis.
+
+    POST body:
+      hash - MD5 scan hash
+    """
+    from pathlib import Path
+    from mobsf.StaticAnalyzer.views.common.binary.tools_bridge import readelf_dynamic
+
+    hash_val = request.POST.get('hash', '')
+    if not hash_val or not is_md5(hash_val):
+        return make_api_response({'error': 'Valid hash required'}, 422)
+
+    scan_dir = Path(settings.UPLD_DIR) / hash_val
+    if not scan_dir.exists():
+        return make_api_response({'error': 'Scan not found'}, 404)
+
+    native_exts = {'.so', '.dylib', '.dll', '.exe'}
+    native_libs = [p for p in scan_dir.rglob('*') if p.suffix.lower() in native_exts]
+
+    elf_rpath_findings = []
+    try:
+        for lib in native_libs:
+            if lib.suffix == '.so':
+                dyn = readelf_dynamic(str(lib))
+                if dyn.get('rpath'):
+                    elf_rpath_findings.append({
+                        'lib': lib.name,
+                        'rpath': dyn['rpath'],
+                    })
+    except Exception:
+        pass
+
+    result = {
+        'hash': hash_val,
+        'native_lib_count': len(native_libs),
+        'native_libs': [str(p.relative_to(scan_dir)) for p in native_libs],
+        'elf_rpath_findings': elf_rpath_findings,
+        'hint': (
+            'Use mobsf_get_native_paths MCP tool to get full paths for REA analysis. '
+            'REA wraps Ghidra, Binary Ninja, r2, and frida for deep RE.'
+        ),
+    }
+    return make_api_response(result, 200)
