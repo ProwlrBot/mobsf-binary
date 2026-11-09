@@ -185,6 +185,33 @@ TOOLS: list[mcp_types.Tool] = [
             'required': ['hash'],
         },
     ),
+    mcp_types.Tool(
+        name='mobsf_vulnx_lookup',
+        description=(
+            'Search ProjectDiscovery vulnx (vulnerability.sh) for CVEs affecting '
+            'a detected technology. Returns CVE IDs, CVSS scores, EPSS scores, '
+            'CISA-KEV flag, and PoC availability — sorted by triage priority. '
+            'Requires vulnx CLI installed and authenticated.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'tech_name': {
+                    'type': 'string',
+                    'description': 'Library or framework name (e.g. "openssl", "okhttp", "log4j")',
+                },
+                'version': {
+                    'type': 'string',
+                    'description': 'Optional version string to narrow results',
+                },
+                'severity': {
+                    'type': 'string',
+                    'description': 'Comma-separated severity filter (default: medium,high,critical)',
+                },
+            },
+            'required': ['tech_name'],
+        },
+    ),
 ]
 
 
@@ -294,6 +321,23 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
             result = await _post('/api/v1/delete_scan', {
                 'hash': arguments['hash'],
             })
+
+        elif name == 'mobsf_vulnx_lookup':
+            from mobsf.StaticAnalyzer.views.common.vulnx_bridge import (
+                search_tech_cves,
+                _vulnx_available,
+            )
+            if not _vulnx_available():
+                result = {
+                    'error': 'vulnx not available',
+                    'hint': 'Install from https://docs.projectdiscovery.io/tools/vulnx',
+                }
+            else:
+                result = search_tech_cves(
+                    tech_name=arguments['tech_name'],
+                    version=arguments.get('version', ''),
+                    severity=arguments.get('severity', 'medium,high,critical'),
+                )
 
         else:
             result = {'error': f'Unknown tool: {name}'}
