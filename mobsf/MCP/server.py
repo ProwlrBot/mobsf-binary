@@ -323,6 +323,35 @@ TOOLS: list[mcp_types.Tool] = [
             },
         },
     ),
+    mcp_types.Tool(
+        name='mobsf_triage',
+        description=(
+            'Run the full triage pipeline on a MobSF scan: '
+            'FP filter → LLM scoring → MASVS tagging → HTML report. '
+            'Returns bounty_score, priority (P1/P2/P3/noise), next decisive test, '
+            'MASVS control IDs, and analyst-ready HTML report with proven/disproven controls.'
+        ),
+        inputSchema={
+            'type': 'object',
+            'properties': {
+                'hash': {
+                    'type': 'string',
+                    'description': 'MD5 scan hash from mobsf_upload.',
+                },
+                'skip_llm': {
+                    'type': 'boolean',
+                    'description': 'Force rule-based scoring (no LLM API call)',
+                    'default': False,
+                },
+                'skip_noise_in_report': {
+                    'type': 'boolean',
+                    'description': 'Omit noise findings from HTML report',
+                    'default': False,
+                },
+            },
+            'required': ['hash'],
+        },
+    ),
 ]
 
 
@@ -496,6 +525,64 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
             if findings:
                 findings = tag_findings_with_masvs(findings)
             result = coverage_report(findings or None)
+
+        elif name == 'mobsf_triage':
+            # Fetch findings from MobSF report, then run triage pipeline
+            try:
+                report = await _post('/api/v1/report_json', {
+                    'hash': arguments['hash'],
+                    'scan_type': 'apk',
+                })
+            except Exception:
+                report = {}
+            # Flatten code_analysis into findings list
+            findings = []
+            code_analysis = report.get('code_analysis', {})
+            if isinstance(code_analysis, dict):
+                for rule_id, item in code_analysis.items():
+                    if isinstance(item, dict):
+                        meta = item.get('metadata', {})
+                        findings.append({
+                            'title': meta.get('description', rule_id),
+                            'description': meta.get('description', ''),
+                            'rule_id': rule_id,
+                            'severity': meta.get('severity', 'info'),
+                            'file_path': '',
+                            'code': '',
+                        })
+            app_info = {
+                'app_name': report.get('app_name', ''),
+                'package': report.get('package_name', ''),
+                'version': report.get('version_name', ''),
+                'platform': 'android',
+            }
+            from mobsf.StaticAnalyzer.views.common.triage_pipeline import run_triage
+            triage_result = run_triage(
+                findings,
+                app_info=app_info,
+                skip_llm=arguments.get('skip_llm', False),
+                skip_noise_in_report=arguments.get('skip_noise_in_report', False),
+            )
+            result = {
+                'stats': triage_result['stats'],
+                'coverage_summary': triage_result.get('coverage', {}).get('summary', {}),
+                'gap_controls': triage_result.get('coverage', {}).get('gap_controls', []),
+                'llm_provider': triage_result['llm_status'].get('provider', 'none'),
+                'top_findings': [
+                    {
+                        'title': f.get('title', ''),
+                        'priority': f.get('triage', {}).get('priority', 'noise'),
+                        'bounty_score': f.get('triage', {}).get('bounty_score', 0),
+                        'fp_risk': f.get('triage', {}).get('fp_risk', 'high'),
+                        'masvs_ids': f.get('masvs_ids', []),
+                        'next_action': f.get('triage', {}).get('next_action', ''),
+                        'reasoning': f.get('triage', {}).get('reasoning', ''),
+                    }
+                    for f in triage_result['findings'][:20]
+                ],
+                'html_bytes': len(triage_result.get('html', '')),
+                'hint': 'Call /api/v1/triage with this hash to get the full HTML report',
+            }
 
         else:
             result = {'error': f'Unknown tool: {name}'}
