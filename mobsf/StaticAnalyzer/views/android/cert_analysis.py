@@ -490,10 +490,16 @@ def cert_info(app_dic, man_dict):
                 'collision issues.')
             title = 'Certificate algorithm vulnerable to hash collision'
             findings.append((status, desc, title))
+        signing_security = {}
+        try:
+            signing_security = score_signing_security(cert_data)
+        except Exception:
+            logger.exception('Signing security scoring failed')
         return {
             'certificate_info': cert_data['cert_data'],
             'certificate_findings': findings,
             'certificate_summary': summary,
+            'signing_security': signing_security,
         }
     except Exception as exp:
         msg = 'Reading Code Signing Certificate'
@@ -504,6 +510,7 @@ def cert_info(app_dic, man_dict):
             'certificate_info': '',
             'certificate_findings': [],
             'certificate_summary': {},
+            'signing_security': {},
         }
 
 
