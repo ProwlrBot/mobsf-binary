@@ -216,26 +216,103 @@ def test_llm_connection(request):
 
 
 def _pull_findings(scan_hash: str) -> list:
-    """Extract code-analysis findings from the Android static analyzer DB."""
+    """Extract findings from all Android static analyzer sources."""
     findings = []
+
+    def _load(val):
+        if isinstance(val, str):
+            try:
+                return json.loads(val)
+            except Exception:
+                return None
+        return val
+
+    def _sev(raw):
+        s = str(raw).lower()
+        if s in ('high', 'critical', 'dangerous'):
+            return 'high'
+        if s in ('medium', 'warning', 'moderate'):
+            return 'medium'
+        if s in ('low', 'info', 'secure', 'notice'):
+            return 'low'
+        return 'info'
+
     try:
         from mobsf.StaticAnalyzer.models import StaticAnalyzerAndroid
         obj = StaticAnalyzerAndroid.objects.filter(MD5=scan_hash).first()
-        if obj and getattr(obj, 'CODE_ANALYSIS', None):
-            ca = obj.CODE_ANALYSIS
-            if isinstance(ca, dict):
-                for rule_id, item in ca.items():
-                    if not isinstance(item, dict):
-                        continue
-                    meta = item.get('metadata', {})
-                    findings.append({
-                        'title':       meta.get('description', rule_id),
-                        'description': meta.get('description', ''),
-                        'rule_id':     rule_id,
-                        'severity':    meta.get('severity', 'info'),
-                        'file_path':   '',
-                        'code':        '',
-                    })
+        if not obj:
+            return findings
+
+        # 1. CODE_ANALYSIS (rule_id → {metadata: {description, severity}})
+        ca = _load(obj.CODE_ANALYSIS) or {}
+        for rule_id, item in ca.items():
+            if not isinstance(item, dict):
+                continue
+            meta = item.get('metadata', {})
+            findings.append({
+                'title':       meta.get('description', rule_id),
+                'description': meta.get('description', ''),
+                'rule_id':     rule_id,
+                'severity':    _sev(meta.get('severity', 'info')),
+                'file_path':   '',
+                'code':        '',
+                'source':      'code',
+            })
+
+        # 2. MANIFEST_ANALYSIS (list of {rule, title, severity, description, component})
+        ma = _load(obj.MANIFEST_ANALYSIS) or []
+        for item in (ma if isinstance(ma, list) else []):
+            if not isinstance(item, dict):
+                continue
+            findings.append({
+                'title':       item.get('title', item.get('rule', 'Manifest issue')),
+                'description': item.get('description', ''),
+                'rule_id':     item.get('rule', ''),
+                'severity':    _sev(item.get('severity', 'info')),
+                'file_path':   item.get('component', 'AndroidManifest.xml'),
+                'code':        '',
+                'source':      'manifest',
+            })
+
+        # 3. BINARY_ANALYSIS (list of {name, nx, stack, relro, ...})
+        ba = _load(obj.BINARY_ANALYSIS) or []
+        for item in (ba if isinstance(ba, list) else []):
+            if not isinstance(item, dict):
+                continue
+            name = item.get('name', 'binary')
+            for prop, val in item.items():
+                if prop == 'name' or not isinstance(val, dict):
+                    continue
+                sev = val.get('severity', val.get('is_' + prop, 'info'))
+                desc = val.get('description', prop)
+                findings.append({
+                    'title':       f'{prop.upper()} issue in {name}',
+                    'description': desc,
+                    'rule_id':     f'binary_{prop}',
+                    'severity':    _sev(sev),
+                    'file_path':   name,
+                    'code':        '',
+                    'source':      'binary',
+                })
+
+        # 4. FIREBASE_URLS (list of {title, severity, description})
+        fb = _load(obj.FIREBASE_URLS) or []
+        for item in (fb if isinstance(fb, list) else []):
+            if not isinstance(item, dict):
+                continue
+            sev = item.get('severity', 'info')
+            if sev == 'secure':
+                continue
+            findings.append({
+                'title':       item.get('title', 'Firebase finding'),
+                'description': item.get('description', ''),
+                'rule_id':     'firebase',
+                'severity':    _sev(sev),
+                'file_path':   '',
+                'code':        '',
+                'source':      'firebase',
+            })
+
     except Exception:
-        pass
+        logger.exception('_pull_findings error')
     return findings
