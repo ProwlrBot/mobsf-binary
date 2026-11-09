@@ -54,7 +54,7 @@
     cvss: 5
     cwe: cwe-919
     owasp-mobile: m1
-    masvs: platform-6
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#static-analysis-7
 - id: android_write_app_dir
   message: App can write to App Directory. Sensitive Information should be encrypted.
@@ -114,7 +114,7 @@
     cvss: 0
     cwe: ''
     owasp-mobile: ''
-    masvs: platform-9
+    masvs: platform-3
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#testing-for-overlay-attacks-mstg-platform-9
 - id: android_read_write_external
   message: >-
@@ -159,7 +159,7 @@
     cvss: 8.8
     cwe: cwe-749
     owasp-mobile: m1
-    masvs: platform-7
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#testing-javascript-execution-in-webviews-mstg-platform-5
 - id: android_webview_allow_file_from_url
   message: >-
@@ -176,7 +176,7 @@
     cvss: 6.1
     cwe: cwe-200
     owasp-mobile: m1
-    masvs: platform-7
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#static-analysis-6
 - id: android_sql_cipher_aes256
   message: >-
@@ -262,7 +262,7 @@
     cwe: ''
     owasp-mobile: ''
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x04b-Mobile-App-Security-Testing.md#clipboard
-    masvs: platform-4
+    masvs: storage-1
 - id: android_clipboard_copy
   message: >-
     This App copies data to clipboard. Sensitive data should not be copied to
@@ -561,7 +561,7 @@
     cvss: 7.5
     cwe: cwe-502
     owasp-mobile: m7
-    masvs: platform-8
+    masvs: code-1
 - id: android_aes_ecb
   message: >-
     The App uses ECB mode in Cryptographic encryption algorithm. ECB mode is
@@ -797,7 +797,7 @@
     cvss: 5.5
     cwe: cwe-306
     owasp-mobile: m1
-    masvs: platform-4
+    masvs: platform-1
     ref: https://developer.android.com/reference/android/net/LocalServerSocket
 # ── Phase 2: Play Integrity / SafetyNet deprecation ─────────────────────────
 - id: android_play_integrity
@@ -997,7 +997,7 @@
     owasp-mobile: m3
     masvs: auth-1
 
-# ── PLATFORM-8: FLAG_SECURE absence ──────────────────────────────────────────
+# ── PLATFORM-3: FLAG_SECURE absence ──────────────────────────────────────────
 - id: android_no_flag_secure
   message: >-
     Sensitive Activity/Fragment class detected without FLAG_SECURE. Class name
@@ -1011,12 +1011,12 @@
     cvss: 4.3
     cwe: cwe-200
     owasp-mobile: m2
-    masvs: platform-8
+    masvs: platform-3
     ref: https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE
 - id: android_flag_secure_present
   message: >-
     FLAG_SECURE is set on this window — prevents screenshots and screen recording.
-    Good practice for screens displaying sensitive data (MASVS-PLATFORM-8).
+    Good practice for screens displaying sensitive data (MASVS-PLATFORM-3).
   type: Regex
   pattern: 'FLAG_SECURE|addFlags.*FLAG_SECURE|setFlags.*FLAG_SECURE'
   severity: info
@@ -1025,9 +1025,9 @@
     cvss: 0.0
     cwe: ''
     owasp-mobile: ''
-    masvs: platform-8
+    masvs: platform-3
 
-# ── PLATFORM-7: AutoFill / UI data exposure ───────────────────────────────────
+# ── PLATFORM-3: AutoFill / UI data exposure ───────────────────────────────────
 - id: android_autofill_credit_card_hint
   message: >-
     AutoFill hint exposes credit card field type to the AutoFill framework.
@@ -1041,11 +1041,11 @@
     cvss: 4.0
     cwe: cwe-312
     owasp-mobile: m2
-    masvs: platform-7
+    masvs: platform-3
 - id: android_important_for_autofill_no
   message: >-
     importantForAutofill set to NO — correctly prevents AutoFill caching for
-    this field. Satisfies MASVS-PLATFORM-7 for sensitive input fields.
+    this field. Satisfies MASVS-PLATFORM-3 for sensitive input fields.
   type: Regex
   pattern: 'importantForAutofill.*no|IMPORTANT_FOR_AUTOFILL_NO|setImportantForAutofill\s*\(\s*View\.IMPORTANT_FOR_AUTOFILL_NO'
   severity: info
@@ -1054,7 +1054,7 @@
     cvss: 0.0
     cwe: ''
     owasp-mobile: ''
-    masvs: platform-7
+    masvs: platform-3
 - id: android_keyboard_cache_sensitive
   message: >-
     Input field uses a type that enables keyboard caching (textEmailAddress,
@@ -1068,7 +1068,7 @@
     cvss: 2.0
     cwe: cwe-312
     owasp-mobile: m2
-    masvs: platform-7
+    masvs: platform-3
 
 # ── RESILIENCE-3: Obfuscation / ProGuard ─────────────────────────────────────
 - id: android_no_obfuscation_release
@@ -1275,7 +1275,7 @@
     cvss: 3.5
     cwe: cwe-359
     owasp-mobile: m8
-    masvs: platform-5
+    masvs: resilience-1
 - id: android_deprecated_http_client
   message: >-
     Apache HttpClient (org.apache.http) is deprecated since API 22 and removed
@@ -1289,7 +1289,7 @@
     cvss: 3.0
     cwe: cwe-477
     owasp-mobile: ''
-    masvs: platform-5
+    masvs: network-1
 - id: android_deprecated_asynctask
   message: >-
     AsyncTask is deprecated since API 30. It has known memory leak and lifecycle
@@ -1302,7 +1302,7 @@
     cvss: 0.0
     cwe: cwe-477
     owasp-mobile: ''
-    masvs: platform-5
+    masvs: code-3
 
 # ── PLATFORM-6: Third-party self-update ──────────────────────────────────────
 - id: android_third_party_apk_install
@@ -1318,4 +1318,90 @@
     cvss: 7.5
     cwe: cwe-494
     owasp-mobile: m8
-    masvs: platform-6
+    masvs: resilience-1
+
+# ── PRIVACY-2: Device fingerprinting and advertising ID ──────────────────────
+- id: android_device_fingerprinting
+  message: >-
+    App reads persistent device identifiers (IMEI, device serial, hardware
+    MAC address) without confirmed user consent. Collecting these identifiers
+    without disclosure violates MASVS-PRIVACY-2 and may breach GDPR/CCPA.
+    Use resettable advertising ID with consent or AndroidId scoped to your app.
+  type: RegexOr
+  pattern:
+    - 'TelephonyManager.*getDeviceId|getDeviceId\s*\(\s*\)'
+    - 'getImei|getImsi|getSubscriberId'
+    - 'READ_PHONE_STATE'
+    - 'getHardwareAddress\(\)|BluetoothAdapter.*getAddress'
+    - 'Build\.SERIAL|android\.os\.Build\.SERIAL'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://developer.android.com/training/articles/user-data-ids
+- id: android_advertising_id
+  message: >-
+    App reads the Google Advertising ID (AdvertisingIdClient) or
+    Settings.Secure.ANDROID_ID without a visible consent mechanism nearby.
+    Advertising IDs must only be used for advertising with user consent per
+    Google Play policy. ANDROID_ID is scoped per-app since Android 8 but still
+    links sessions without consent.
+  type: RegexOr
+  pattern:
+    - 'AdvertisingIdClient|getAdvertisingIdInfo'
+    - 'Settings\.Secure\.ANDROID_ID'
+    - 'isLimitAdTrackingEnabled'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://support.google.com/googleplay/android-developer/answer/6048248
+
+# ── PRIVACY-2: Device fingerprinting and advertising ID ──────────────────────
+- id: android_device_fingerprinting
+  message: >-
+    App reads persistent device identifiers (IMEI, device serial, hardware
+    MAC address) without confirmed user consent. Collecting these identifiers
+    without disclosure violates MASVS-PRIVACY-2 and may breach GDPR/CCPA.
+    Use resettable advertising ID with consent or AndroidId scoped to your app.
+  type: RegexOr
+  pattern:
+    - 'TelephonyManager.*getDeviceId|getDeviceId\s*\(\s*\)'
+    - 'getImei|getImsi|getSubscriberId'
+    - 'READ_PHONE_STATE'
+    - 'getHardwareAddress\(\)|BluetoothAdapter.*getAddress'
+    - 'Build\.SERIAL|android\.os\.Build\.SERIAL'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://developer.android.com/training/articles/user-data-ids
+- id: android_advertising_id
+  message: >-
+    App reads the Google Advertising ID (AdvertisingIdClient) or
+    Settings.Secure.ANDROID_ID without a visible consent mechanism nearby.
+    Advertising IDs must only be used for advertising with user consent per
+    Google Play policy. ANDROID_ID is scoped per-app since Android 8 but still
+    links sessions without consent.
+  type: RegexOr
+  pattern:
+    - 'AdvertisingIdClient|getAdvertisingIdInfo'
+    - 'Settings\.Secure\.ANDROID_ID'
+    - 'isLimitAdTrackingEnabled'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://support.google.com/googleplay/android-developer/answer/6048248

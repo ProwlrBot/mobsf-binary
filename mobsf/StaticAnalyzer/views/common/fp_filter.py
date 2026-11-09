@@ -336,8 +336,8 @@ POSITIVE_CONFIRMATION_RULES: frozenset = frozenset({
 
 # MASVS controls that were previously gaps — noise pre-filter must not kill these.
 GAP_CONTROL_IDS: frozenset = frozenset({
-    'AUTH-2', 'AUTH-3', 'PLATFORM-7', 'PLATFORM-8',
-    'RESILIENCE-3', 'PRIVACY-2', 'CODE-4',
+    'AUTH-2', 'AUTH-3', 'PLATFORM-3',
+    'RESILIENCE-3', 'PRIVACY-2', 'PRIVACY-3', 'PRIVACY-4', 'CODE-4',
 })
 
 

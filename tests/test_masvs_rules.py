@@ -151,7 +151,7 @@ def test_gap_control_not_killed_by_noise_verdict():
             'verdict': 'noise', 'confidence': 85,
             'reason': 'Anti-debug pattern', 'bounty_ceiling': 0,
         },
-        'masvs_ids': ['PLATFORM-8'],
+        'masvs_ids': ['PLATFORM-3'],
     }
     result = post_filter_masvs(finding)
     assert result['fp_filter']['verdict'] == 'investigate'
