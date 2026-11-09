@@ -9,8 +9,11 @@ and CVSS scores from the NVD database.
 
 OSV API docs: https://google.github.io/osv.dev/api/
 """
+import json as _json
 import logging
 import time
+import urllib.error
+import urllib.request
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -31,9 +34,6 @@ def _osv_query_batch(packages: list[dict]) -> list[dict]:
     Returns list of {"vulns": [...]} parallel to input, or empty on failure.
     """
     try:
-        import urllib.request
-        import urllib.error
-        import json as _json
         payload = _json.dumps({"queries": packages}).encode()
         req = urllib.request.Request(
             OSV_BATCH_URL,
@@ -64,17 +64,20 @@ def _extract_severity(vuln: dict) -> tuple[str, float]:
     best_label = 'NONE'
     best_score = 0.0
     for sev in vuln.get('severity', []):
-        score_str = sev.get('score', '')
+        label = sev.get('type', 'NONE').upper()
+        score = 0.0
+        # CVSS v3 vector string does not embed the base score; read from database_specific
         try:
-            if 'CVSS:3' in score_str:
-                score = float(
-                    vuln.get('database_specific', {}).get('cvss', {}).get('score', 0) or 0
-                )
-            else:
-                score = 0.0
+            db_cvss = vuln.get('database_specific', {}).get('cvss', {})
+            if isinstance(db_cvss, dict):
+                score = float(db_cvss.get('score', 0) or 0)
+            elif isinstance(db_cvss, (int, float)):
+                score = float(db_cvss)
         except (ValueError, TypeError):
             score = 0.0
-        label = sev.get('type', 'NONE').upper()
+        # Fall back to approximate ranges from severity label when score is absent
+        if score == 0.0:
+            score = {'CRITICAL': 9.5, 'HIGH': 7.5, 'MEDIUM': 5.5, 'LOW': 2.5}.get(label, 0.0)
         if SEVERITY_ORDER.get(label, 0) > SEVERITY_ORDER.get(best_label, 0):
             best_label = label
         if score > best_score:
