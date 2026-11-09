@@ -71,7 +71,8 @@
               </div>
             </div>
             {% if scan_hash %}
-            <button type="submit" id="run_btn" class="btn btn-warning" formaction="{% url 'triage_scan' scan_hash %}">
+            <button type="submit" id="run_btn" class="btn btn-warning" formaction="{% url 'triage_scan' scan_hash %}"
+              onclick="this.disabled=true;this.innerHTML='<i class=\'fas fa-spinner fa-spin mr-1\'></i>Running…';this.form.submit();">
               <i class="fas fa-play mr-1"></i>Run Triage
             </button>
             {% else %}

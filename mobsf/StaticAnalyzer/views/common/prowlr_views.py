@@ -134,6 +134,8 @@ def triage_view(request, scan_hash=None):
                     skip_noise_in_report=skip_noise,
                 )
                 scan_info = app_info
+                # Remap pipeline output to what the template expects
+                _remap_result(result)
         except Exception as exc:
             logger.exception('Triage error')
             err = str(exc)
@@ -215,17 +217,56 @@ def test_llm_connection(request):
         return JsonResponse({'ok': False, 'error': str(exc)})
 
 
+def _remap_result(result: dict) -> None:
+    """Translate run_triage() output keys → template-expected keys (in-place)."""
+    stats = result.get('stats', {})
+    findings = result.get('findings', [])
+
+    # Flatten triage sub-dict onto each finding for the template
+    for f in findings:
+        t = f.get('triage', {})
+        fp_risk = t.get('fp_risk', 0) or 0
+        priority = t.get('priority', 'P3')
+        score = t.get('bounty_score', 0) or 0
+
+        f['verdict'] = (
+            'false_positive' if fp_risk > 70
+            else ('signal' if priority in ('P1', 'P2') else 'noise')
+        )
+        f['fp_verdict'] = (
+            'fp' if fp_risk > 70
+            else ('likely_fp' if fp_risk > 40 else 'real')
+        )
+        f['llm_score'] = score if score else None
+        f['next_test'] = t.get('next_action', '')
+
+    fp_count = sum(1 for f in findings if f.get('fp_verdict') == 'fp')
+    result['summary'] = {
+        'total':          stats.get('total', len(findings)),
+        'high_signal':    stats.get('p1', 0) + stats.get('p2', 0),
+        'false_positives': fp_count,
+        'noise':          stats.get('noise', 0),
+    }
+
+
 def _pull_findings(scan_hash: str) -> list:
     """Extract findings from all Android static analyzer sources."""
     findings = []
 
     def _load(val):
-        if isinstance(val, str):
+        if isinstance(val, (list, dict)):
+            return val
+        if isinstance(val, str) and val not in ('', '{}', '[]'):
+            # MobSF stores fields as Python repr (single quotes), not JSON
+            import ast
             try:
-                return json.loads(val)
+                return ast.literal_eval(val)
             except Exception:
-                return None
-        return val
+                try:
+                    return json.loads(val)
+                except Exception:
+                    return None
+        return None
 
     def _sev(raw):
         s = str(raw).lower()
