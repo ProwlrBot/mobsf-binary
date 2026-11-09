@@ -30,12 +30,20 @@ ALLOWED_EXTS = {
 MAX_BINARY_SIZE = 200 * 1024 * 1024  # 200 MB
 
 
+def _base_ctx(extra=None):
+    ctx = {
+        'version': settings.MOBSF_VER,
+        'allowed_exts': sorted(ALLOWED_EXTS.keys()),
+    }
+    if extra:
+        ctx.update(extra)
+    return ctx
+
+
 @login_required
 def binary_intel_home(request):
     """Render the Binary Intelligence upload page."""
-    return render(request, 'static_analysis/binary_intel.html', {
-        'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-    })
+    return render(request, 'static_analysis/binary_intel.html', _base_ctx())
 
 
 @login_required
@@ -44,33 +52,24 @@ def binary_intel_scan(request, api=False):
     """Accept a binary upload, run checksec, return results page."""
     try:
         if not has_permission(request, Permissions.SCAN, api):
-            return render(request, 'static_analysis/binary_intel.html', {
-                'error': 'Permission Denied',
-                'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-            })
+            return render(request, 'static_analysis/binary_intel.html',
+                          _base_ctx({'error': 'Permission Denied'}))
 
         uploaded = request.FILES.get('binary')
         if not uploaded:
-            return render(request, 'static_analysis/binary_intel.html', {
-                'error': 'No file provided.',
-                'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-            })
+            return render(request, 'static_analysis/binary_intel.html',
+                          _base_ctx({'error': 'No file provided.'}))
 
         filename = uploaded.name
         ext = Path(filename).suffix.lower()
         if ext not in ALLOWED_EXTS:
-            return render(request, 'static_analysis/binary_intel.html', {
-                'error': f'Unsupported file type: {ext}. Accepted: {", ".join(sorted(ALLOWED_EXTS))}',
-                'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-            })
+            return render(request, 'static_analysis/binary_intel.html',
+                          _base_ctx({'error': f'Unsupported: {ext}. Accepted: {", ".join(sorted(ALLOWED_EXTS))}'}))
 
         if uploaded.size > MAX_BINARY_SIZE:
-            return render(request, 'static_analysis/binary_intel.html', {
-                'error': f'File too large ({uploaded.size // 1048576} MB). Max 200 MB.',
-                'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-            })
+            return render(request, 'static_analysis/binary_intel.html',
+                          _base_ctx({'error': f'File too large ({uploaded.size // 1048576} MB). Max 200 MB.'}))
 
-        # Save to temp location under UPLD_DIR
         raw = uploaded.read()
         md5 = hashlib.md5(raw).hexdigest()
         scan_dir = Path(settings.UPLD_DIR) / f'binaryintel_{md5}'
@@ -85,17 +84,13 @@ def binary_intel_scan(request, api=False):
         result['md5'] = md5
         result['arch'] = arch.upper()
 
-        return render(request, 'static_analysis/binary_intel.html', {
-            'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-            'result': result,
-        })
+        return render(request, 'static_analysis/binary_intel.html',
+                      _base_ctx({'result': result}))
 
     except Exception as exc:
         logger.exception('Binary Intel scan error')
-        return render(request, 'static_analysis/binary_intel.html', {
-            'error': f'Scan failed: {exc}',
-            'allowed_exts': sorted(ALLOWED_EXTS.keys()),
-        })
+        return render(request, 'static_analysis/binary_intel.html',
+                      _base_ctx({'error': f'Scan failed: {exc}'}))
 
 
 def _run_checksec(path: Path, arch: str, checksum: str) -> dict:
