@@ -312,3 +312,62 @@ def filter_findings(findings: list) -> list:
             'bounty_ceiling': result.bounty_ceiling,
         }
     return findings
+
+
+# ── MASVS-aware post-filter ───────────────────────────────────────────────────
+
+# Rules that CONFIRM a good security control is present — not a vulnerability.
+# These get hard-killed to noise so they never waste LLM tokens.
+POSITIVE_CONFIRMATION_RULES: frozenset = frozenset({
+    'android_keystore_used',
+    'android_important_for_autofill_no',
+    'android_flag_secure_present',
+    'android_obfuscation_enabled',
+    'android_biometric_prompt_present',
+    'android_rootbeer_present',
+    'android_magisk_detection',
+    'android_frida_detection_code',
+    'android_play_integrity',
+    'android_oauth_pkce_present',
+    'android_xposed_detect',
+    'android_safetynet_present',
+    'android_native_string_decrypt',
+})
+
+# MASVS controls that were previously gaps — noise pre-filter must not kill these.
+GAP_CONTROL_IDS: frozenset = frozenset({
+    'AUTH-2', 'AUTH-3', 'PLATFORM-7', 'PLATFORM-8',
+    'RESILIENCE-3', 'PRIVACY-2', 'CODE-4',
+})
+
+
+def post_filter_masvs(finding: dict) -> dict:
+    """
+    Post-process a finding's fp_filter verdict using MASVS context.
+
+    Call AFTER both filter_findings() and tag_findings_with_masvs() have run.
+
+    Rules:
+    - Positive confirmation rules → always noise (good control present, not a vuln)
+    - Gap MASVS control findings wrongly killed as noise → upgrade to investigate
+    """
+    rule_id = finding.get('rule_id', '') or finding.get('title', '')
+    fp = finding.get('fp_filter', {})
+
+    if rule_id in POSITIVE_CONFIRMATION_RULES:
+        fp['verdict'] = 'noise'
+        fp['confidence'] = 95
+        fp['reason'] = 'Positive confirmation of security control — not a vulnerability.'
+        fp['bounty_ceiling'] = 0
+        finding['fp_filter'] = fp
+        return finding
+
+    masvs_ids = set(finding.get('masvs_ids', []))
+    if fp.get('verdict') == 'noise' and masvs_ids & GAP_CONTROL_IDS:
+        fp['verdict'] = 'investigate'
+        fp['confidence'] = max(fp.get('confidence', 85) - 30, 40)
+        fp['reason'] = (fp.get('reason') or '') + ' BUT maps to a MASVS gap control — investigate.'
+        fp['bounty_ceiling'] = max(fp.get('bounty_ceiling', 0), 30)
+        finding['fp_filter'] = fp
+
+    return finding
