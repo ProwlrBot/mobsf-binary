@@ -14,20 +14,40 @@ Tools used:
   nuclei   — tech fingerprinting and vuln scanning for backend URLs
   naabu    — port discovery on backend hosts
 """
+import json
 import logging
+import os
+import re
 import shutil
 import subprocess
-import re
+import tempfile
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-READELF = shutil.which('readelf') or '/usr/bin/readelf'
-OBJDUMP = shutil.which('objdump') or '/usr/bin/objdump'
-STRINGS = shutil.which('strings') or '/usr/bin/strings'
-NUCLEI  = shutil.which('nuclei') or '/home/anon/go/bin/nuclei'
-NAABU   = shutil.which('naabu') or '/home/anon/go/bin/naabu'
-
 _TIMEOUT = 30
+
+
+def _find_tool(name: str, env_var: str, *fallback_dirs: str) -> str:
+    """Find a tool: env override → PATH → common user dirs → bare name."""
+    if os.environ.get(env_var):
+        return os.environ[env_var]
+    found = shutil.which(name)
+    if found:
+        return found
+    home = Path.home()
+    for d in fallback_dirs:
+        p = home / d / name
+        if p.is_file():
+            return str(p)
+    return name  # let subprocess raise FileNotFoundError naturally
+
+
+READELF = _find_tool('readelf', 'READELF_BIN')
+OBJDUMP = _find_tool('objdump', 'OBJDUMP_BIN')
+STRINGS = _find_tool('strings', 'STRINGS_BIN')
+NUCLEI  = _find_tool('nuclei',  'NUCLEI_BIN',  'go/bin', '.local/bin')
+NAABU   = _find_tool('naabu',   'NAABU_BIN',   'go/bin', '.local/bin')
 
 
 def _run(cmd: list[str], timeout: int = _TIMEOUT) -> str:
@@ -72,7 +92,9 @@ def readelf_dynamic(binary_path: str) -> dict:
             m = re.search(r'\[([^\]]+)\]', line)
             if m:
                 result['rpath'].append(m.group(1))
-        elif 'BIND_NOW' in line:
+        elif '(FLAGS)' in line and 'BIND_NOW' in line:
+            result['has_bindnow'] = True
+        elif '(FLAGS_1)' in line and 'NOW' in line:
             result['has_bindnow'] = True
 
     out_prog = _run([READELF, '-W', '-l', binary_path])
@@ -87,36 +109,35 @@ def readelf_dynamic(binary_path: str) -> dict:
     return result
 
 
-def readelf_notes(binary_path: str) -> list[dict]:
+def readelf_notes(binary_path: str) -> dict:
     """
-    Extract ELF notes (GNU_PROPERTY, ABI-tag, build-id) using readelf.
-    Useful for detecting Intel CET, stack notes, and OS ABI.
+    Extract ELF GNU_PROPERTY notes (Intel CET IBT/SHSTK) using readelf.
+    Returns a summary dict with reliable pattern matching on readelf -n output.
     """
     out = _run([READELF, '-W', '-n', binary_path])
-    notes = []
-    current: dict = {}
+    result = {
+        'has_ibt': False,
+        'has_shstk': False,
+        'build_id': '',
+        'abi_tag': '',
+    }
     for line in out.splitlines():
-        line = line.strip()
-        if line.startswith('Displaying notes'):
-            if current:
-                notes.append(current)
-            current = {}
-        elif line.startswith('GNU'):
-            current['owner'] = 'GNU'
-        elif 'IBT' in line:
-            current['ibt'] = True
-        elif 'SHSTK' in line:
-            current['shstk'] = True
-        elif 'NT_GNU_ABI_TAG' in line:
-            current['type'] = 'ABI_TAG'
-        elif 'NT_GNU_BUILD_ID' in line:
-            current['type'] = 'BUILD_ID'
-            m = re.search(r'Build ID:\s+([0-9a-f]+)', line)
-            if m:
-                current['build_id'] = m.group(1)
-    if current:
-        notes.append(current)
-    return notes
+        line_l = line.lower()
+        # Intel CET IBT: appears as "IBT" in GNU_PROPERTY lines
+        if re.search(r'\bibt\b', line, re.IGNORECASE):
+            result['has_ibt'] = True
+        # Shadow Stack
+        if 'shstk' in line_l or 'shadow stack' in line_l:
+            result['has_shstk'] = True
+        # Build ID
+        m = re.search(r'Build ID:\s+([0-9a-f]{20,})', line, re.IGNORECASE)
+        if m:
+            result['build_id'] = m.group(1)
+        # OS/ABI tag
+        m = re.search(r'OS/ABI:\s+(\S+)', line)
+        if m:
+            result['abi_tag'] = m.group(1)
+    return result
 
 
 def readelf_symbols_dangerous(binary_path: str, dangerous: list[str]) -> list[str]:
@@ -124,6 +145,7 @@ def readelf_symbols_dangerous(binary_path: str, dangerous: list[str]) -> list[st
     Use readelf to list dynamic symbol imports and intersect with a danger list.
     Faster than loading with LIEF for quick checks.
     """
+    danger_set = set(dangerous)
     out = _run([READELF, '-W', '--dyn-syms', binary_path])
     found = []
     for line in out.splitlines():
@@ -131,7 +153,7 @@ def readelf_symbols_dangerous(binary_path: str, dangerous: list[str]) -> list[st
         if len(parts) < 8:
             continue
         sym = parts[-1].split('@')[0]
-        if sym in dangerous:
+        if sym in danger_set:
             found.append(sym)
     return list(dict.fromkeys(found))
 
@@ -202,21 +224,17 @@ def nuclei_scan_urls(
     Returns:
         list of {"url": str, "template": str, "severity": str, "info": dict} findings
     """
-    import os
-    if not urls or not (shutil.which('nuclei') or os.path.isfile(NUCLEI)):
+    if not urls or not (shutil.which('nuclei') or Path(NUCLEI).is_file()):
         return []
     if templates is None:
         templates = ['tech-detect', 'exposures']
 
-    import tempfile
-    import json as _json
-
+    url_file = None
     findings = []
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tf:
-        tf.write('\n'.join(urls))
-        url_file = tf.name
-
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tf:
+            tf.write('\n'.join(urls))
+            url_file = tf.name
         cmd = [NUCLEI, '-l', url_file, '-json', '-silent', '-no-color']
         for tag in templates:
             cmd.extend(['-tags', tag])
@@ -225,7 +243,7 @@ def nuclei_scan_urls(
             if not line.strip():
                 continue
             try:
-                item = _json.loads(line)
+                item = json.loads(line)
                 findings.append({
                     'url': item.get('host') or item.get('url', ''),
                     'template': item.get('template-id') or item.get('templateID', ''),
@@ -236,7 +254,8 @@ def nuclei_scan_urls(
             except Exception:
                 continue
     finally:
-        os.unlink(url_file)
+        if url_file:
+            Path(url_file).unlink(missing_ok=True)
 
     return findings
 
@@ -248,24 +267,20 @@ def naabu_port_scan(hosts: list[str], ports: str = '80,443,8080,8443,8888,9000')
     Run naabu port scan on backend hosts extracted from an app.
     Returns list of {"host": str, "port": int, "ip": str} open ports.
     """
-    import os
-    if not hosts or not (shutil.which('naabu') or os.path.isfile(NAABU)):
+    if not hosts or not (shutil.which('naabu') or Path(NAABU).is_file()):
         return []
 
-    import tempfile
-    import json as _json
-
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tf:
-        tf.write('\n'.join(hosts))
-        host_file = tf.name
-
+    host_file = None
     results = []
     try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tf:
+            tf.write('\n'.join(hosts))
+            host_file = tf.name
         cmd = [NAABU, '-l', host_file, '-p', ports, '-json', '-silent', '-no-color']
         out = _run(cmd, timeout=60)
         for line in out.splitlines():
             try:
-                item = _json.loads(line)
+                item = json.loads(line)
                 results.append({
                     'host': item.get('host', ''),
                     'port': item.get('port', 0),
@@ -274,6 +289,7 @@ def naabu_port_scan(hosts: list[str], ports: str = '80,443,8080,8443,8888,9000')
             except Exception:
                 continue
     finally:
-        os.unlink(host_file)
+        if host_file:
+            Path(host_file).unlink(missing_ok=True)
 
     return results
