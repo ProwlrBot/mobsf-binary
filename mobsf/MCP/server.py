@@ -479,7 +479,12 @@ async def call_tool(name: str, arguments: dict) -> list[mcp_types.TextContent]:
 
         elif name == 'mobsf_get_native_paths':
             from django.conf import settings
-            scan_hash = arguments['hash']
+            from mobsf.StaticAnalyzer.views.common.evidence_path import validate_scan_hash
+            try:
+                scan_hash = validate_scan_hash(arguments.get('hash', ''))
+            except ValueError as _e:
+                result = {'error': str(_e)}
+                return [TextContent(type='text', text=json.dumps(result, indent=2))]
             exts = set(arguments.get('extensions') or ['.so', '.dylib', '.dll', '.exe', '.a'])
             scan_dir = Path(settings.UPLD_DIR) / scan_hash
             if not scan_dir.exists():
