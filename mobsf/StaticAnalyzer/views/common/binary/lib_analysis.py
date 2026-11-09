@@ -105,6 +105,21 @@ def library_analysis(checksum, src, arch):
             strings = chk.strings()
             symbols = chk.get_symbols()
 
+            if chksec and arch == 'elf':
+                try:
+                    from mobsf.StaticAnalyzer.views.common.binary.tools_bridge import (
+                        readelf_dynamic,
+                    )
+                    elf_dyn = readelf_dynamic(str(libfile))
+                    if elf_dyn.get('rpath'):
+                        chksec['rpath_injection_risk'] = elf_dyn['rpath']
+                    if elf_dyn.get('shared_libs'):
+                        chksec['shared_libs_readelf'] = elf_dyn['shared_libs']
+                    if elf_dyn.get('has_relro') and not chksec.get('relro'):
+                        chksec['relro'] = 'full'
+                except Exception:
+                    pass
+
             if chksec:
                 res[f'{arch}_analysis'].append(chksec)
             if strings:
