@@ -1384,6 +1384,25 @@
     owasp-mobile: m1
     masvs: platform-1
     ref: https://developer.android.com/guide/topics/manifest/receiver-element
+- id: android_webview_debug_no_build_flag
+  message: >-
+    setWebContentsDebuggingEnabled(true) called without an obvious
+    BuildConfig.DEBUG or ApplicationInfo.FLAG_DEBUGGABLE guard. In a release
+    build this opens all WebViews to remote JS inspection via chrome://inspect
+    on a connected device. Confirm whether the guarding constant is a
+    compile-time false before triaging as a confirmed finding.
+  type: RegexAnd
+  pattern:
+    - 'setWebContentsDebuggingEnabled\(true\)'
+    - '(?!.*BuildConfig\.DEBUG)(?!.*applicationInfo\.flags)'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.5
+    cwe: cwe-489
+    owasp-mobile: m7
+    masvs: resilience-2
+    ref: https://developer.chrome.com/docs/devtools/remote-debugging/webviews/
 - id: android_oauth_client_secret_embedded
   message: >-
     Hardcoded OAuth2 client_secret in source or BuildConfig. If the backend
