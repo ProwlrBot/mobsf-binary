@@ -38,6 +38,7 @@ from mobsf.MobSF.views.api.api_static_analysis import (
     api_jwt_analysis,
     api_vulnx_search,
     api_binary_findings,
+    api_triage,
 )
 from mobsf.MobSF.views.api import api_android_dynamic_analysis as api_dz
 from mobsf.MobSF.views.api import api_ios_dynamic_analysis as api_idz
@@ -113,6 +114,7 @@ urlpatterns = [
     re_path(r'^api/v1/jwt_analysis$', api_jwt_analysis),
     re_path(r'^api/v1/vulnx_search$', api_vulnx_search),
     re_path(r'^api/v1/binary_findings$', api_binary_findings),
+    re_path(r'^api/v1/triage$', api_triage),
     # Static Suppression
     re_path(r'^api/v1/suppress_by_rule$', api_sz.api_suppress_by_rule_id),
     re_path(r'^api/v1/suppress_by_files$', api_sz.api_suppress_by_files),
