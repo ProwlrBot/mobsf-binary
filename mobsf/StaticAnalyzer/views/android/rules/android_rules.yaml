@@ -799,3 +799,200 @@
     owasp-mobile: m1
     masvs: platform-4
     ref: https://developer.android.com/reference/android/net/LocalServerSocket
+# ── Phase 2: Play Integrity / SafetyNet deprecation ─────────────────────────
+- id: android_play_integrity
+  message: >-
+    Play Integrity API detected. Ensure attestation results are verified
+    server-side and are not bypassed by emulator or Magisk attestation spoofing.
+  type: Regex
+  pattern: 'IntegrityManager|StandardIntegrityManager|IntegrityTokenRequest|RequestIntegrityVerdict'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+- id: android_safetynet_deprecated
+  message: >-
+    SafetyNet Attestation API detected. SafetyNet was deprecated in May 2023
+    and retired in May 2024. Migrate to the Play Integrity API immediately -
+    SafetyNet responses may be unreliable or absent on current devices.
+  type: RegexOr
+  pattern:
+    - 'SafetyNetClient'
+    - 'SafetyNetApi\.'
+    - 'SafetyNet\.getClient'
+    - 'com\.google\.android\.gms\.safetynet'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+# ── Phase 2: DeepLink / Intent parameter injection ────────────────────────────
+- id: android_deeplink_param_injection
+  message: >-
+    DeepLink URI parameter passed directly to a sensitive sink. Unvalidated
+    deep link data passed to WebView.loadUrl(), Intent constructors, SQL queries,
+    or file operations enables URL injection, XSS, or path traversal via crafted
+    deep links.
+  type: RegexAnd
+  pattern:
+    - 'getQueryParameter\(|getData\(\)|getDataString\(\)|intent\.getData\(\)'
+    - 'loadUrl\(|startActivity\(|execSQL\(|openFileOutput\(|File\('
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.1
+    cwe: cwe-926
+    owasp-mobile: m4
+    masvs: platform-1
+- id: android_deeplink_scheme_handler
+  message: >-
+    Custom URI scheme handler found. Ensure all parameters received via deep
+    links are validated and sanitized before use. Missing input validation on
+    intent data is a common injection vector.
+  type: RegexAnd
+  pattern:
+    - 'android\.intent\.action\.VIEW'
+    - 'getScheme\(\)|getHost\(\)|getPath\(\)|getQueryParameter\('
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.0
+    cwe: cwe-20
+    owasp-mobile: m4
+    masvs: code-4
+# ── Phase 2: Mutable PendingIntent (Android 12+) ─────────────────────────────
+- id: android_pending_intent_mutable
+  message: >-
+    Mutable PendingIntent detected. PendingIntents created without FLAG_IMMUTABLE
+    (required since Android 12 / API 31) allow other apps to modify the wrapped
+    intent, enabling privilege escalation or phishing via intent redirection.
+  type: RegexAnd
+  pattern:
+    - 'PendingIntent\.(getActivity|getBroadcast|getService|getForegroundService)\('
+    - '(?<!FLAG_IMMUTABLE)(?<!FLAG_UPDATE_CURRENT \| FLAG_IMMUTABLE)'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.3
+    cwe: cwe-926
+    owasp-mobile: m4
+    masvs: platform-1
+- id: android_pending_intent_implicit
+  message: >-
+    PendingIntent wrapping an implicit Intent detected. Implicit intents inside
+    PendingIntents can be intercepted by any app that declares a matching intent
+    filter, allowing data theft or phishing.
+  type: RegexAnd
+  pattern:
+    - 'PendingIntent\.'
+    - 'new Intent\(\)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 6.1
+    cwe: cwe-927
+    owasp-mobile: m4
+    masvs: platform-1
+# ── Phase 2: Xposed / LSPosed / Magisk hooking frameworks ────────────────────
+- id: android_xposed_no_detect
+  message: >-
+    No Xposed/LSPosed hooking framework detection found. Apps without Xposed
+    detection can be hooked silently to bypass authentication, root detection,
+    certificate pinning, and other security controls.
+  type: RegexNot
+  pattern: 'de\.robv\.android\.xposed|XposedBridge|XC_MethodHook|org\.lsposed|LSPatchUpdater'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-4
+- id: android_xposed_detect
+  message: >-
+    Xposed/LSPosed detection implemented. Verify that detection is comprehensive
+    and cannot be trivially bypassed (e.g. by renaming the Xposed package or
+    using a custom LSPosed variant with a different package name).
+  type: RegexOr
+  pattern:
+    - 'de\.robv\.android\.xposed'
+    - 'XposedBridge'
+    - 'XC_MethodHook'
+    - 'org\.lsposed\.lspd'
+    - 'io\.github\.lsposed'
+    - 'LSPatchUpdater'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-4
+- id: android_magisk_no_detect
+  message: >-
+    No Magisk/MagiskHide detection found. Magisk can hide root status from
+    standard root checks. Apps requiring integrity guarantees should detect
+    Magisk modules or use Play Integrity attestation server-side.
+  type: RegexNot
+  pattern: 'magisk|MagiskHide|/proc/self/maps.*magisk|zygisk'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+# ── Phase 2: OAuth PKCE and implicit flow ────────────────────────────────────
+- id: android_oauth_implicit_flow
+  message: >-
+    OAuth2 implicit flow (response_type=token) detected. The implicit flow is
+    deprecated per RFC 9700 and RFC 9126 - tokens are exposed in redirect URIs
+    and browser history. Migrate to Authorization Code + PKCE for all native
+    app OAuth flows.
+  type: RegexOr
+  pattern:
+    - 'response_type=token'
+    - 'response_type%3Dtoken'
+    - '"response_type".*"token"'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.4
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
+- id: android_oauth_no_pkce
+  message: >-
+    OAuth2 Authorization Code flow without PKCE detected. Public clients (mobile
+    apps) must use PKCE (Proof Key for Code Exchange, RFC 7636) to prevent
+    authorization code interception attacks. Add code_challenge and
+    code_verifier parameters to the authorization and token requests.
+  type: RegexAnd
+  pattern:
+    - 'response_type=code|response_type%3Dcode|"response_type".*"code"'
+    - '(?!code_challenge)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 6.8
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
+- id: android_oauth_pkce_present
+  message: >-
+    OAuth2 PKCE (code_challenge) detected. Verify that S256 is used (not plain)
+    and that the code_verifier is cryptographically random with sufficient entropy.
+  type: Regex
+  pattern: 'code_challenge|code_verifier|CodeVerifier|PKCE|S256'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
