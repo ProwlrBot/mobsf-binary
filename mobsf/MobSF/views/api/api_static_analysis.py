@@ -337,3 +337,228 @@ def api_delete_suppression(request):
     else:
         response = make_api_response(resp, 200)
     return response
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_sbom_cves(request):
+    """POST - Correlate SBOM entries with CVEs via OSV.dev.
+
+    POST body (JSON or form):
+      entries  - list of {"name": str, "version": str} dicts
+      ecosystem - optional override (e.g. "Maven", "npm")
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.sbom_cve import correlate_sbom_cves
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        entries = data.get('entries', [])
+        ecosystem = data.get('ecosystem', '')
+        if not isinstance(entries, list):
+            return make_api_response({'error': 'entries must be a list'}, 422)
+        result = correlate_sbom_cves(entries, ecosystem_hint=ecosystem)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_jwt_analysis(request):
+    """POST - Scan strings for embedded JWTs and audit security.
+
+    POST body (JSON or form):
+      strings - list of strings to scan for JWT tokens
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.jwt_analysis import analyze_jwts
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        strings = data.get('strings', [])
+        if not isinstance(strings, list):
+            return make_api_response({'error': 'strings must be a list'}, 422)
+        result = analyze_jwts(strings)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_vulnx_search(request):
+    """POST - Search ProjectDiscovery vulnx for CVEs by tech stack.
+
+    POST body (JSON or form):
+      tech_stack - list of {"name": str, "version": str} dicts
+      severity   - optional comma-separated filter (default: medium,high,critical)
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.vulnx_bridge import (
+        analyze_tech_stack,
+        _vulnx_available,
+    )
+    if not _vulnx_available():
+        return make_api_response(
+            {'error': 'vulnx not available',
+             'install': 'https://docs.projectdiscovery.io/tools/vulnx'}, 400)
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+        tech_stack = data.get('tech_stack', [])
+        severity = data.get('severity', 'medium,high,critical')
+        if not isinstance(tech_stack, list):
+            return make_api_response({'error': 'tech_stack must be a list'}, 422)
+        result = analyze_tech_stack(tech_stack, severity_filter=severity)
+        return make_api_response(result, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_binary_findings(request):
+    """POST - Aggregate on-demand binary security findings for a completed scan.
+
+    Runs RPATH injection check on extracted ELF libs and returns a unified
+    findings dict. Complements the stored report with live tool-bridge analysis.
+
+    POST body:
+      hash - MD5 scan hash
+    """
+    from pathlib import Path
+    from mobsf.StaticAnalyzer.views.common.binary.tools_bridge import readelf_dynamic
+
+    hash_val = request.POST.get('hash', '')
+    if not hash_val or not is_md5(hash_val):
+        return make_api_response({'error': 'Valid hash required'}, 422)
+
+    scan_dir = Path(settings.UPLD_DIR) / hash_val
+    if not scan_dir.exists():
+        return make_api_response({'error': 'Scan not found'}, 404)
+
+    native_exts = {'.so', '.dylib', '.dll', '.exe'}
+    native_libs = [p for p in scan_dir.rglob('*') if p.suffix.lower() in native_exts]
+
+    elf_rpath_findings = []
+    try:
+        for lib in native_libs:
+            if lib.suffix == '.so':
+                dyn = readelf_dynamic(str(lib))
+                if dyn.get('rpath'):
+                    elf_rpath_findings.append({
+                        'lib': lib.name,
+                        'rpath': dyn['rpath'],
+                    })
+    except Exception:
+        pass
+
+    result = {
+        'hash': hash_val,
+        'native_lib_count': len(native_libs),
+        'native_libs': [str(p.relative_to(scan_dir)) for p in native_libs],
+        'elf_rpath_findings': elf_rpath_findings,
+        'hint': (
+            'Use mobsf_get_native_paths MCP tool to get full paths for REA analysis. '
+            'REA wraps Ghidra, Binary Ninja, r2, and frida for deep RE.'
+        ),
+    }
+    return make_api_response(result, 200)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_triage(request):
+    """POST - Run full triage pipeline on a completed scan.
+
+    Runs fp_filter → llm_triage → masvs_coverage → triage_report.
+
+    POST body (JSON or form):
+      hash                  - MD5 scan hash (required)
+      skip_llm              - force rule-based scoring (optional, default false)
+      skip_noise_in_report  - omit noise findings from HTML report (optional)
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.triage_pipeline import run_triage
+
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+    except Exception:
+        data = request.POST.dict()
+
+    scan_hash = data.get('hash', '')
+    if not scan_hash or not is_md5(scan_hash):
+        return make_api_response({'error': 'Valid hash required'}, 422)
+
+    skip_llm = bool(data.get('skip_llm', False))
+    skip_noise = bool(data.get('skip_noise_in_report', False))
+
+    # Resolve app metadata from DB
+    app_info: dict = {}
+    try:
+        robj = RecentScansDB.objects.filter(MD5=scan_hash).first()
+        if not robj:
+            return make_api_response({'error': f'Scan {scan_hash} not found'}, 404)
+        app_info = {
+            'app_name': getattr(robj, 'APP_NAME', '') or getattr(robj, 'FILE_NAME', ''),
+            'package': getattr(robj, 'PACKAGE_NAME', '') or '',
+            'version': getattr(robj, 'VERSION_NAME', '') or '',
+            'platform': getattr(robj, 'ANALYZER', '') or 'android',
+        }
+    except Exception:
+        pass
+
+    # Pull code analysis findings from Android model
+    findings: list = []
+    try:
+        from mobsf.StaticAnalyzer.models import StaticAnalyzerAndroid
+        report_obj = StaticAnalyzerAndroid.objects.filter(MD5=scan_hash).first()
+        if report_obj and getattr(report_obj, 'CODE_ANALYSIS', None):
+            raw_ca = report_obj.CODE_ANALYSIS
+            if isinstance(raw_ca, dict):
+                for rule_id, item in raw_ca.items():
+                    if isinstance(item, dict):
+                        meta = item.get('metadata', {})
+                        findings.append({
+                            'title': meta.get('description', rule_id),
+                            'description': meta.get('description', ''),
+                            'rule_id': rule_id,
+                            'severity': meta.get('severity', 'info'),
+                            'file_path': '',
+                            'code': '',
+                        })
+    except Exception:
+        pass
+
+    try:
+        result = run_triage(
+            findings,
+            app_info=app_info,
+            skip_llm=skip_llm,
+            skip_noise_in_report=skip_noise,
+        )
+        return make_api_response({
+            'hash': scan_hash,
+            'stats': result['stats'],
+            'coverage': result.get('coverage', {}).get('summary', {}),
+            'gap_controls': result.get('coverage', {}).get('gap_controls', []),
+            'llm_provider': result['llm_status'].get('provider', 'none'),
+            'findings_count': len(result['findings']),
+            'html_available': bool(result.get('html', '')),
+        }, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)

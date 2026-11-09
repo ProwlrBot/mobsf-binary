@@ -490,10 +490,16 @@ def cert_info(app_dic, man_dict):
                 'collision issues.')
             title = 'Certificate algorithm vulnerable to hash collision'
             findings.append((status, desc, title))
+        signing_security = {}
+        try:
+            signing_security = score_signing_security(cert_data)
+        except Exception:
+            logger.exception('Signing security scoring failed')
         return {
             'certificate_info': cert_data['cert_data'],
             'certificate_findings': findings,
             'certificate_summary': summary,
+            'signing_security': signing_security,
         }
     except Exception as exp:
         msg = 'Reading Code Signing Certificate'
@@ -504,4 +510,95 @@ def cert_info(app_dic, man_dict):
             'certificate_info': '',
             'certificate_findings': [],
             'certificate_summary': {},
+            'signing_security': {},
         }
+
+
+def score_signing_security(signing_info: dict) -> dict:
+    """
+    Score the security of an APK's signing configuration.
+
+    Evaluates which APK Signature Schemes are present:
+      v1 (JAR signing)   - vulnerable to Janus (CVE-2017-13156) if used alone
+      v2 (APK signing)   - baseline; not vulnerable to Janus
+      v3 (key rotation)  - supports key rotation without full re-install
+      v4 (fs-verity)     - required for incremental install on Android 11+
+    """
+    def _get_flag(key_variants):
+        for key in key_variants:
+            val = signing_info.get(key)
+            if val is not None:
+                return bool(val)
+        versions = signing_info.get('versions', {})
+        for key in key_variants:
+            val = versions.get(key)
+            if val is not None:
+                return bool(val)
+        return False
+
+    has_v1 = _get_flag(['v1', 'v1_signing', 'jar_signing', 'V1'])
+    has_v2 = _get_flag(['v2', 'v2_signing', 'apk_signing_v2', 'V2'])
+    has_v3 = _get_flag(['v3', 'v3_signing', 'apk_signing_v3', 'V3', 'v3_1', 'V3_1'])
+    has_v4 = _get_flag(['v4', 'v4_signing', 'apk_signing_v4', 'V4'])
+
+    findings = []
+    severity = 'info'
+
+    # Janus: CVE-2017-13156 - only affects V1-only signed APKs
+    janus_vulnerable = has_v1 and not has_v2 and not has_v3
+    if janus_vulnerable:
+        severity = 'high'
+        findings.append(
+            'APK is signed with V1 (JAR) only - vulnerable to Janus (CVE-2017-13156). '
+            'An attacker can prepend arbitrary DEX code to the APK without invalidating '
+            'the V1 signature, enabling code injection on Android 5.1-8.0.'
+        )
+
+    if not has_v2 and not has_v3:
+        if severity != 'high':
+            severity = 'warning'
+        findings.append(
+            'No APK Signature Scheme V2 or V3 found. V2+ signing is required for '
+            'full APK integrity verification and is the baseline security expectation '
+            'since Android 7.0 (API 24).'
+        )
+
+    if has_v2 and not has_v3:
+        findings.append(
+            'APK uses V2 signing without V3. Consider adding V3 (supported since '
+            'Android 9.0 / API 28) to enable future signing key rotation without '
+            'breaking existing installs.'
+        )
+
+    if not findings:
+        scheme = []
+        if has_v1:
+            scheme.append('V1')
+        if has_v2:
+            scheme.append('V2')
+        if has_v3:
+            scheme.append('V3')
+        if has_v4:
+            scheme.append('V4')
+        findings.append(
+            f'APK signing scheme: {" + ".join(scheme) or "unknown"}. '
+            'No critical signing configuration issues detected.'
+        )
+
+    recommendation = (
+        'Use APK Signature Scheme V2 and V3 at minimum. '
+        'V3 enables key rotation; V4 is required for incremental delivery (Android 11+). '
+        'Never distribute V1-only signed APKs for Android 7+ targets.'
+    )
+
+    return {
+        'v1_only': janus_vulnerable,
+        'has_v1': has_v1,
+        'has_v2': has_v2,
+        'has_v3': has_v3,
+        'has_v4': has_v4,
+        'janus_vulnerable': janus_vulnerable,
+        'severity': severity,
+        'findings': findings,
+        'recommendation': recommendation,
+    }

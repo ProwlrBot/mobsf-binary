@@ -54,7 +54,7 @@
     cvss: 5
     cwe: cwe-919
     owasp-mobile: m1
-    masvs: platform-6
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#static-analysis-7
 - id: android_write_app_dir
   message: App can write to App Directory. Sensitive Information should be encrypted.
@@ -114,7 +114,7 @@
     cvss: 0
     cwe: ''
     owasp-mobile: ''
-    masvs: platform-9
+    masvs: platform-3
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#testing-for-overlay-attacks-mstg-platform-9
 - id: android_read_write_external
   message: >-
@@ -159,7 +159,7 @@
     cvss: 8.8
     cwe: cwe-749
     owasp-mobile: m1
-    masvs: platform-7
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#testing-javascript-execution-in-webviews-mstg-platform-5
 - id: android_webview_allow_file_from_url
   message: >-
@@ -176,7 +176,7 @@
     cvss: 6.1
     cwe: cwe-200
     owasp-mobile: m1
-    masvs: platform-7
+    masvs: platform-2
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x05h-Testing-Platform-Interaction.md#static-analysis-6
 - id: android_sql_cipher_aes256
   message: >-
@@ -220,7 +220,11 @@
     owasp-mobile: ''
     masvs: crypto-1
 - id: android_webview_debug
-  message: Remote WebView debugging is enabled.
+  message: >-
+    setWebContentsDebuggingEnabled(true) detected. Verify this call is guarded
+    by BuildConfig.DEBUG or FLAG_DEBUGGABLE (flags & 2). If unguarded in
+    production, Chrome DevTools can inspect WebView traffic including auth
+    tokens and session cookies loaded in financial, auth, or social SDKs.
   type: RegexAnd
   pattern:
     - \.setWebContentsDebuggingEnabled\(true\)
@@ -228,11 +232,11 @@
   severity: high
   input_case: exact
   metadata:
-    cvss: 5.4
-    cwe: cwe-919
-    owasp-mobile: m1
-    masvs: resilience-2
-    ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x04c-Tampering-and-Reverse-Engineering.md#debugging-and-tracing
+    cvss: 7.4
+    cwe: cwe-1295
+    owasp-mobile: m6
+    masvs: platform-2
+    ref: https://developer.chrome.com/docs/devtools/remote-debugging/webviews/
 - id: android_aar_jar_debug_enabled
   message: Debug configuration enabled. Production builds must not be debuggable.
   type: RegexAnd
@@ -262,7 +266,7 @@
     cwe: ''
     owasp-mobile: ''
     ref: https://github.com/MobSF/owasp-mstg/blob/master/Document/0x04b-Mobile-App-Security-Testing.md#clipboard
-    masvs: platform-4
+    masvs: storage-1
 - id: android_clipboard_copy
   message: >-
     This App copies data to clipboard. Sensitive data should not be copied to
@@ -561,7 +565,7 @@
     cvss: 7.5
     cwe: cwe-502
     owasp-mobile: m7
-    masvs: platform-8
+    masvs: code-1
 - id: android_aes_ecb
   message: >-
     The App uses ECB mode in Cryptographic encryption algorithm. ECB mode is
@@ -797,5 +801,605 @@
     cvss: 5.5
     cwe: cwe-306
     owasp-mobile: m1
-    masvs: platform-4
+    masvs: platform-1
     ref: https://developer.android.com/reference/android/net/LocalServerSocket
+# ── Phase 2: Play Integrity / SafetyNet deprecation ─────────────────────────
+- id: android_play_integrity
+  message: >-
+    Play Integrity API detected. Ensure attestation results are verified
+    server-side and are not bypassed by emulator or Magisk attestation spoofing.
+  type: Regex
+  pattern: 'IntegrityManager|StandardIntegrityManager|IntegrityTokenRequest|RequestIntegrityVerdict'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+- id: android_safetynet_deprecated
+  message: >-
+    SafetyNet Attestation API detected. SafetyNet was deprecated in May 2023
+    and retired in May 2024. Migrate to the Play Integrity API immediately -
+    SafetyNet responses may be unreliable or absent on current devices.
+  type: RegexOr
+  pattern:
+    - 'SafetyNetClient'
+    - 'SafetyNetApi\.'
+    - 'SafetyNet\.getClient'
+    - 'com\.google\.android\.gms\.safetynet'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+# ── Phase 2: DeepLink / Intent parameter injection ────────────────────────────
+- id: android_deeplink_param_injection
+  message: >-
+    DeepLink URI parameter passed directly to a sensitive sink. Unvalidated
+    deep link data passed to WebView.loadUrl(), Intent constructors, SQL queries,
+    or file operations enables URL injection, XSS, or path traversal via crafted
+    deep links.
+  type: RegexAnd
+  pattern:
+    - 'getQueryParameter\(|getData\(\)|getDataString\(\)|intent\.getData\(\)'
+    - 'loadUrl\(|startActivity\(|execSQL\(|openFileOutput\(|File\('
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.1
+    cwe: cwe-926
+    owasp-mobile: m4
+    masvs: platform-1
+- id: android_deeplink_scheme_handler
+  message: >-
+    Custom URI scheme handler found. Ensure all parameters received via deep
+    links are validated and sanitized before use. Missing input validation on
+    intent data is a common injection vector.
+  type: RegexAnd
+  pattern:
+    - 'android\.intent\.action\.VIEW'
+    - 'getScheme\(\)|getHost\(\)|getPath\(\)|getQueryParameter\('
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.0
+    cwe: cwe-20
+    owasp-mobile: m4
+    masvs: code-4
+# ── Phase 2: Mutable PendingIntent (Android 12+) ─────────────────────────────
+- id: android_pending_intent_mutable
+  message: >-
+    Mutable PendingIntent detected. PendingIntents created without FLAG_IMMUTABLE
+    (required since Android 12 / API 31) allow other apps to modify the wrapped
+    intent, enabling privilege escalation or phishing via intent redirection.
+  type: RegexAnd
+  pattern:
+    - 'PendingIntent\.(getActivity|getBroadcast|getService|getForegroundService)\('
+    - '(?<!FLAG_IMMUTABLE)(?<!FLAG_UPDATE_CURRENT \| FLAG_IMMUTABLE)'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.3
+    cwe: cwe-926
+    owasp-mobile: m4
+    masvs: platform-1
+- id: android_pending_intent_implicit
+  message: >-
+    PendingIntent wrapping an implicit Intent detected. Implicit intents inside
+    PendingIntents can be intercepted by any app that declares a matching intent
+    filter, allowing data theft or phishing.
+  type: RegexAnd
+  pattern:
+    - 'PendingIntent\.'
+    - 'new Intent\(\)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 6.1
+    cwe: cwe-927
+    owasp-mobile: m4
+    masvs: platform-1
+# ── Phase 2: Xposed / LSPosed / Magisk hooking frameworks ────────────────────
+- id: android_xposed_no_detect
+  message: >-
+    No Xposed/LSPosed hooking framework detection found. Apps without Xposed
+    detection can be hooked silently to bypass authentication, root detection,
+    certificate pinning, and other security controls.
+  type: RegexNot
+  pattern: 'de\.robv\.android\.xposed|XposedBridge|XC_MethodHook|org\.lsposed|LSPatchUpdater'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-4
+- id: android_xposed_detect
+  message: >-
+    Xposed/LSPosed detection implemented. Verify that detection is comprehensive
+    and cannot be trivially bypassed (e.g. by renaming the Xposed package or
+    using a custom LSPosed variant with a different package name).
+  type: RegexOr
+  pattern:
+    - 'de\.robv\.android\.xposed'
+    - 'XposedBridge'
+    - 'XC_MethodHook'
+    - 'org\.lsposed\.lspd'
+    - 'io\.github\.lsposed'
+    - 'LSPatchUpdater'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-4
+- id: android_magisk_no_detect
+  message: >-
+    No Magisk/MagiskHide detection found. Magisk can hide root status from
+    standard root checks. Apps requiring integrity guarantees should detect
+    Magisk modules or use Play Integrity attestation server-side.
+  type: RegexNot
+  pattern: 'magisk|MagiskHide|/proc/self/maps.*magisk|zygisk'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-693
+    owasp-mobile: m8
+    masvs: resilience-1
+# ── Phase 2: OAuth PKCE and implicit flow ────────────────────────────────────
+- id: android_oauth_implicit_flow
+  message: >-
+    OAuth2 implicit flow (response_type=token) detected. The implicit flow is
+    deprecated per RFC 9700 and RFC 9126 - tokens are exposed in redirect URIs
+    and browser history. Migrate to Authorization Code + PKCE for all native
+    app OAuth flows.
+  type: RegexOr
+  pattern:
+    - 'response_type=token'
+    - 'response_type%3Dtoken'
+    - '"response_type".*"token"'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.4
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
+- id: android_oauth_no_pkce
+  message: >-
+    OAuth2 Authorization Code flow without PKCE detected. Public clients (mobile
+    apps) must use PKCE (Proof Key for Code Exchange, RFC 7636) to prevent
+    authorization code interception attacks. Add code_challenge and
+    code_verifier parameters to the authorization and token requests.
+  type: RegexAnd
+  pattern:
+    - 'response_type=code|response_type%3Dcode|"response_type".*"code"'
+    - '(?!code_challenge)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 6.8
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
+- id: android_oauth_pkce_present
+  message: >-
+    OAuth2 PKCE (code_challenge) detected. Verify that S256 is used (not plain)
+    and that the code_verifier is cryptographically random with sufficient entropy.
+  type: Regex
+  pattern: 'code_challenge|code_verifier|CodeVerifier|PKCE|S256'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-287
+    owasp-mobile: m3
+    masvs: auth-1
+
+# ── PLATFORM-3: FLAG_SECURE absence ──────────────────────────────────────────
+- id: android_no_flag_secure
+  message: >-
+    Sensitive Activity/Fragment class detected without FLAG_SECURE. Class name
+    suggests it handles sensitive data (login, payment, settings) but FLAG_SECURE
+    is not set, allowing screenshots and screen-sharing capture of this screen.
+  type: Regex
+  pattern: 'class\s+(Login|Payment|Checkout|Password|Pin|Card|Account|Banking|Transfer)(Activity|Fragment)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.3
+    cwe: cwe-200
+    owasp-mobile: m2
+    masvs: platform-3
+    ref: https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE
+- id: android_flag_secure_present
+  message: >-
+    FLAG_SECURE is set on this window — prevents screenshots and screen recording.
+    Good practice for screens displaying sensitive data (MASVS-PLATFORM-3).
+  type: Regex
+  pattern: 'FLAG_SECURE|addFlags.*FLAG_SECURE|setFlags.*FLAG_SECURE'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: platform-3
+
+# ── PLATFORM-3: AutoFill / UI data exposure ───────────────────────────────────
+- id: android_autofill_credit_card_hint
+  message: >-
+    AutoFill hint exposes credit card field type to the AutoFill framework.
+    Verify autofill is disabled (IMPORTANT_FOR_AUTOFILL_NO) on fields that
+    should never be cached, such as CVV and full PAN fields.
+  type: Regex
+  pattern: 'AUTOFILL_HINT_CREDIT_CARD_NUMBER|AUTOFILL_HINT_CREDIT_CARD_EXPIRATION|autofillHints.*creditCard'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-312
+    owasp-mobile: m2
+    masvs: platform-3
+- id: android_important_for_autofill_no
+  message: >-
+    importantForAutofill set to NO — correctly prevents AutoFill caching for
+    this field. Satisfies MASVS-PLATFORM-3 for sensitive input fields.
+  type: Regex
+  pattern: 'importantForAutofill.*no|IMPORTANT_FOR_AUTOFILL_NO|setImportantForAutofill\s*\(\s*View\.IMPORTANT_FOR_AUTOFILL_NO'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: platform-3
+- id: android_keyboard_cache_sensitive
+  message: >-
+    Input field uses a type that enables keyboard caching (textEmailAddress,
+    phone, textPersonName). Use inputType="textNoSuggestions" or
+    IME_FLAG_NO_PERSONALIZED_LEARNING to prevent keyboard learning on sensitive fields.
+  type: Regex
+  pattern: 'inputType.*textEmailAddress|inputType.*phone|inputType.*textPersonName'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 2.0
+    cwe: cwe-312
+    owasp-mobile: m2
+    masvs: platform-3
+
+# ── RESILIENCE-3: Obfuscation / ProGuard ─────────────────────────────────────
+- id: android_no_obfuscation_release
+  message: >-
+    minifyEnabled false detected. For production releases, ProGuard/R8 minification
+    and obfuscation should be enabled (minifyEnabled true + proguardFiles). Without
+    it, class and method names are readable in the APK, aiding reverse engineering.
+  type: Regex
+  pattern: 'minifyEnabled\s+false|minifyEnabled\s*=\s*false'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-693
+    owasp-mobile: m9
+    masvs: resilience-3
+- id: android_obfuscation_enabled
+  message: >-
+    ProGuard/R8 minification is enabled (minifyEnabled true). Obfuscation raises
+    the bar for static analysis and reverse engineering (MASVS-RESILIENCE-3).
+  type: Regex
+  pattern: 'minifyEnabled\s+true|minifyEnabled\s*=\s*true'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-3
+- id: android_native_string_decrypt
+  message: >-
+    Native method named decrypt/deobfuscate/decode found — may indicate string
+    encryption in the native layer (MASVS-RESILIENCE-3). JNI boundary suggests
+    protected strings are decrypted at runtime via native code.
+  type: Regex
+  pattern: 'native\s+.*(?:decrypt|deobfuscate|decode)|System\.loadLibrary.*(?:crypt|obfusc)'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-3
+
+# ── AUTH-2: Biometric / identity verification ─────────────────────────────────
+- id: android_no_biometric_before_sensitive
+  message: >-
+    Sensitive operation method (makePayment, initiateTransfer, deleteAccount,
+    changePassword) found without adjacent BiometricPrompt call. MASVS-AUTH-2
+    requires identity verification before high-risk operations.
+  type: Regex
+  pattern: '(?:makePayment|initiateTransfer|deleteAccount|changePassword)\s*\('
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.0
+    cwe: cwe-306
+    owasp-mobile: m3
+    masvs: auth-2
+- id: android_biometric_prompt_present
+  message: >-
+    BiometricPrompt is used — identity verification before sensitive operations
+    is implemented. Satisfies MASVS-AUTH-2.
+  type: Regex
+  pattern: 'BiometricPrompt|authenticate.*biometric|BiometricManager'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: auth-2
+
+# ── CRYPTO-2: KeyStore usage ──────────────────────────────────────────────────
+- id: android_keystore_used
+  message: >-
+    AndroidKeyStore is used for key storage — hardware-backed, keys cannot be
+    extracted. Satisfies MASVS-CRYPTO-2 key management requirements.
+  type: Regex
+  pattern: 'AndroidKeyStore|KeyStore\.getInstance.*AndroidKeyStore|KeyGenParameterSpec|setKeystoreAlias'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: crypto-2
+- id: android_no_keystore_key_gen
+  message: >-
+    Key generation found without Android KeyStore provider. Keys generated with
+    KeyGenerator.getInstance("AES") without setProvider("AndroidKeyStore") are
+    stored in app memory and are extractable if the device is rooted.
+  type: Regex
+  pattern: 'KeyGenerator\.getInstance\s*\(\s*"AES"\s*\)|SecretKeySpec\s*\(\s*(?!.*AndroidKeyStore)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.5
+    cwe: cwe-321
+    owasp-mobile: m5
+    masvs: crypto-2
+
+# ── STORAGE-2: Clipboard sensitive data ──────────────────────────────────────
+- id: android_clipboard_write
+  message: >-
+    Data written to clipboard via setPrimaryClip(). If content is sensitive
+    (token, password, PAN), it is accessible to any app on Android < 10.
+    Clear clipboard on app backgrounding (onPause).
+  type: Regex
+  pattern: 'setPrimaryClip|ClipData\.newPlainText'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-200
+    owasp-mobile: m2
+    masvs: storage-2
+
+# ── PRIVACY-2: PII in logs ────────────────────────────────────────────────────
+- id: android_pii_in_log
+  message: >-
+    Logging call may output PII (email, SSN, DOB, name, phone, credit card) to
+    Logcat. On Android < 4.1, any app can read Logcat. Even on later versions,
+    this exposes PII to debug tooling and crash reporters.
+  type: Regex
+  pattern: 'Log\.[vdiwef]\s*\(.*(?:email|ssn|dob|firstName|lastName|phoneNumber|creditCard|password|token)'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 6.5
+    cwe: cwe-532
+    owasp-mobile: m2
+    masvs: privacy-2
+
+# ── RESILIENCE-1: RootBeer / Magisk detection ─────────────────────────────────
+- id: android_rootbeer_present
+  message: >-
+    RootBeer root detection library is present. Robust multi-vector root
+    detection implemented — satisfies MASVS-RESILIENCE-1.
+  type: Regex
+  pattern: 'RootBeer|com\.scottyab\.rootbeer|rootBeer\.isRooted'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-1
+- id: android_magisk_detection
+  message: >-
+    Magisk Manager package check or /sbin/.magisk path check found — app detects
+    Magisk root hide. Satisfies MASVS-RESILIENCE-1.
+  type: Regex
+  pattern: 'com\.topjohnwu\.magisk|MagiskManager|/sbin/\.magisk|MagiskHide'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-1
+
+# ── RESILIENCE-4: Frida gadget / detection ───────────────────────────────────
+- id: android_frida_gadget_strings
+  message: >-
+    Frida gadget or agent string found in binary. This may indicate an
+    instrumented/patched build — or the app's own Frida detection code. Verify
+    which JNI lib contains this string and whether it is a detection mechanism
+    or an injected instrumentation artefact.
+  type: Regex
+  pattern: 'frida-gadget|frida-agent|libfrida|frida_agent_main|gum_script_backend'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.5
+    cwe: cwe-693
+    owasp-mobile: m9
+    masvs: resilience-4
+- id: android_frida_detection_code
+  message: >-
+    App contains code to detect Frida by checking for frida-server process,
+    /data/local/tmp/frida-server, or TCP port 27042. Satisfies MASVS-RESILIENCE-4.
+  type: Regex
+  pattern: 'frida.server|27042|frida-server|detectFrida|isFridaPresent|anti.*frida'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-4
+
+# ── PLATFORM-5: Deprecated APIs ──────────────────────────────────────────────
+- id: android_deprecated_telephony_imei
+  message: >-
+    TelephonyManager.getDeviceId() is deprecated since API 26. Returns IMEI on
+    Android 10+ only with privileged permission. Use ANDROID_ID or Play Services
+    advertising ID instead. Violates PLATFORM-5 and potentially PRIVACY-1.
+  type: Regex
+  pattern: 'getDeviceId\s*\(\s*\)|telephonyManager\.getDeviceId'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 3.5
+    cwe: cwe-359
+    owasp-mobile: m8
+    masvs: resilience-1
+- id: android_deprecated_http_client
+  message: >-
+    Apache HttpClient (org.apache.http) is deprecated since API 22 and removed
+    in API 23. It does not benefit from modern TLS improvements. Migrate to
+    OkHttp or HttpURLConnection.
+  type: Regex
+  pattern: 'org\.apache\.http\.impl\.client\.DefaultHttpClient|org\.apache\.http\.client\.HttpClient'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 3.0
+    cwe: cwe-477
+    owasp-mobile: ''
+    masvs: network-1
+- id: android_deprecated_asynctask
+  message: >-
+    AsyncTask is deprecated since API 30. It has known memory leak and lifecycle
+    issues. Migrate to Kotlin Coroutines or WorkManager.
+  type: Regex
+  pattern: 'extends\s+AsyncTask|AsyncTask<'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-477
+    owasp-mobile: ''
+    masvs: code-3
+
+# ── PLATFORM-6: Third-party self-update ──────────────────────────────────────
+- id: android_third_party_apk_install
+  message: >-
+    App installs APKs from arbitrary sources (ACTION_INSTALL_PACKAGE or
+    PackageInstaller.Session). This bypasses Play Store integrity checks and
+    allows silent malware distribution. Requires REQUEST_INSTALL_PACKAGES.
+  type: Regex
+  pattern: 'ACTION_INSTALL_PACKAGE|PackageInstaller\.Session|downloadApk|installApk'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.5
+    cwe: cwe-494
+    owasp-mobile: m8
+    masvs: resilience-1
+
+# ── PRIVACY-2: Device fingerprinting and advertising ID ──────────────────────
+- id: android_device_fingerprinting
+  message: >-
+    App reads persistent device identifiers (IMEI, device serial, hardware
+    MAC address) without confirmed user consent. Collecting these identifiers
+    without disclosure violates MASVS-PRIVACY-2 and may breach GDPR/CCPA.
+    Use resettable advertising ID with consent or AndroidId scoped to your app.
+  type: RegexOr
+  pattern:
+    - 'TelephonyManager.*getDeviceId|getDeviceId\s*\(\s*\)'
+    - 'getImei|getImsi|getSubscriberId'
+    - 'READ_PHONE_STATE'
+    - 'getHardwareAddress\(\)|BluetoothAdapter.*getAddress'
+    - 'Build\.SERIAL|android\.os\.Build\.SERIAL'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://developer.android.com/training/articles/user-data-ids
+- id: android_advertising_id
+  message: >-
+    App reads the Google Advertising ID (AdvertisingIdClient) or
+    Settings.Secure.ANDROID_ID without a visible consent mechanism nearby.
+    Advertising IDs must only be used for advertising with user consent per
+    Google Play policy. ANDROID_ID is scoped per-app since Android 8 but still
+    links sessions without consent.
+  type: RegexOr
+  pattern:
+    - 'AdvertisingIdClient|getAdvertisingIdInfo'
+    - 'Settings\.Secure\.ANDROID_ID'
+    - 'isLimitAdTrackingEnabled'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.3
+    cwe: cwe-359
+    owasp-mobile: m1
+    masvs: privacy-2
+    ref: https://support.google.com/googleplay/android-developer/answer/6048248
+
+- id: android_widget_exported_no_permission
+  message: >-
+    BroadcastReceiver or AppWidgetProvider is exported without android:permission.
+    Any installed app can send intents to trigger this component, potentially
+    causing unintended widget refreshes, BLE polls, or WorkManager task enqueues.
+  type: RegexOr
+  pattern:
+    - 'android:exported="true"(?![^>]*android:permission)'
+    - 'exported=true(?![^\n]*permission=)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.3
+    cwe: cwe-926
+    owasp-mobile: m1
+    masvs: platform-1
+    ref: https://developer.android.com/guide/topics/manifest/receiver-element
+- id: android_oauth_client_secret_embedded
+  message: >-
+    Hardcoded OAuth2 client_secret in source or BuildConfig. If the backend
+    treats this app as a confidential client, an attacker who extracts this value
+    can authenticate to the authorization server without user consent. Verify
+    PKCE enforcement and public-client registration before discounting.
+  type: RegexOr
+  pattern:
+    - 'CLIENT_SECRET\s*=\s*"[A-Za-z0-9+/=_\-]{16,}"'
+    - 'client_secret\s*=\s*"[A-Za-z0-9+/=_\-]{16,}"'
+    - 'OWNERAPI_CLIENT_SECRET|OAUTH_CLIENT_SECRET'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 8.1
+    cwe: cwe-321
+    owasp-mobile: m1
+    masvs: auth-1
+    ref: https://www.rfc-editor.org/rfc/rfc6749#section-10.1

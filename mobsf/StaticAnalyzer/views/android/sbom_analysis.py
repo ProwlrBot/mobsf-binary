@@ -48,7 +48,15 @@ def android_sbom(app_dir):
 
 def sbom(app_dir, file_data):
     """Extract SBOM from version files, build manifests, and source code."""
+    from mobsf.StaticAnalyzer.views.common.sbom_cve import correlate_sbom_cves
+    sbom_versioned = extract_android_sbom(app_dir)
+    cve_data = {}
+    try:
+        cve_data = correlate_sbom_cves(sbom_versioned)
+    except Exception:
+        logger.exception('SBOM CVE correlation failed')
     return {
-        'sbom_versioned': extract_android_sbom(app_dir),
+        'sbom_versioned': sbom_versioned,
         'sbom_packages': extract_packages(file_data),
+        'sbom_cves': cve_data,
     }
