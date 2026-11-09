@@ -2,7 +2,6 @@
 """Binary Intelligence — standalone EXE/DLL/ELF/SO/MachO scanner."""
 import hashlib
 import logging
-import os
 import tempfile
 from pathlib import Path
 
@@ -27,7 +26,7 @@ ALLOWED_EXTS = {
     '.out': 'elf',
 }
 
-MAX_BINARY_SIZE = 200 * 1024 * 1024  # 200 MB
+MAX_BINARY_SIZE = 500 * 1024 * 1024  # 500 MB
 
 
 def _base_ctx(extra=None):
@@ -68,19 +67,26 @@ def binary_intel_scan(request, api=False):
 
         if uploaded.size > MAX_BINARY_SIZE:
             return render(request, 'static_analysis/binary_intel.html',
-                          _base_ctx({'error': f'File too large ({uploaded.size // 1048576} MB). Max 200 MB.'}))
+                          _base_ctx({'error': f'File too large ({uploaded.size // 1048576} MB). Max 500 MB.'}))
 
-        raw = uploaded.read()
-        md5 = hashlib.md5(raw).hexdigest()
+        # Stream to a temp file first to get the MD5 without loading into RAM
+        hasher = hashlib.md5()
+        with tempfile.NamedTemporaryFile(delete=False, dir=settings.UPLD_DIR) as tmp:
+            tmp_path = tmp.name
+            for chunk in uploaded.chunks(chunk_size=8 * 1024 * 1024):
+                hasher.update(chunk)
+                tmp.write(chunk)
+        md5 = hasher.hexdigest()
         scan_dir = Path(settings.UPLD_DIR) / f'binaryintel_{md5}'
         scan_dir.mkdir(parents=True, exist_ok=True)
         binary_path = scan_dir / filename
-        binary_path.write_bytes(raw)
+        Path(tmp_path).rename(binary_path)
+        file_size = binary_path.stat().st_size
 
         arch = ALLOWED_EXTS[ext]
         result = _run_checksec(binary_path, arch, md5)
         result['filename'] = filename
-        result['filesize_kb'] = round(len(raw) / 1024, 1)
+        result['filesize_kb'] = round(file_size / 1024, 1)
         result['md5'] = md5
         result['arch'] = arch.upper()
 
