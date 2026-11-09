@@ -23,6 +23,13 @@ INFO = 'info'
 WARNING = 'warning'
 HIGH = 'high'
 
+DANGEROUS_IMPORTS = [
+    'strcpy', 'strcat', 'sprintf', 'vsprintf', 'gets', 'scanf', 'sscanf',
+    'strtok', 'bcopy', 'bzero', 'stpcpy', 'wcscpy', 'wcscat', 'wcstombs',
+    'getwd', 'realpath', 'tempnam', 'getpass', 'mktemp',
+]
+CFI_SYMBOLS = ['__cfi_check', '__cfi_slowpath', '__cfi_slowpath_diag']
+
 
 def nm_is_debug_symbol_stripped(elf_file):
     """Check if debug symbols are stripped using OS utility."""
@@ -251,6 +258,60 @@ class ELFChecksec:
             'severity': severity,
             'description': desc,
         }
+        has_cfi = self.has_cfi()
+        if has_cfi:
+            severity = INFO
+            desc = (
+                'The binary is compiled with Control Flow Integrity (CFI). '
+                'CFI prevents attackers from redirecting execution to arbitrary '
+                'code locations through indirect calls or vtable corruption.')
+        else:
+            severity = WARNING
+            desc = (
+                'The binary does not appear to use Control Flow Integrity (CFI). '
+                'Without CFI, attackers can hijack indirect branches and virtual '
+                'calls. Compile with -fsanitize=cfi (Clang) to enable CFI.')
+        elf_dict['cfi'] = {
+            'has_cfi': has_cfi,
+            'severity': severity,
+            'description': desc,
+        }
+        has_cet = self.has_cet()
+        if has_cet:
+            severity = INFO
+            desc = (
+                'The binary supports Intel CET (Control-flow Enforcement Technology) '
+                'with IBT (Indirect Branch Tracking) and/or SHSTK (Shadow Stack). '
+                'CET prevents ROP and JOP attacks at the hardware level.')
+        else:
+            severity = INFO
+            desc = (
+                'Intel CET (IBT/SHSTK) is not enabled. CET is a hardware-level '
+                'mitigation against ROP/JOP attacks. Compile with -fcf-protection=full '
+                'on x86_64 Linux with a CET-capable toolchain to enable it.')
+        elf_dict['intel_cet'] = {
+            'has_cet': has_cet,
+            'severity': severity,
+            'description': desc,
+        }
+        dangerous = self.dangerous_imports()
+        if dangerous:
+            severity = HIGH
+            desc = (
+                f'The binary imports unsafe C functions: {", ".join(dangerous)}. '
+                'These functions are common sources of buffer overflow, format string, '
+                'and memory corruption vulnerabilities. Replace with their safe '
+                'counterparts (e.g. strncpy, snprintf, fgets).')
+        else:
+            severity = INFO
+            desc = (
+                'No known dangerous C functions are imported. The binary avoids '
+                'unsafe string and memory operations from the C standard library.')
+        elf_dict['dangerous_imports'] = {
+            'functions': dangerous,
+            'severity': severity,
+            'description': desc,
+        }
         return elf_dict
 
     def is_elf(self, elf_path):
@@ -390,6 +451,42 @@ class ELFChecksec:
                 continue
             normalized.add(i)
         return list(normalized)
+
+    def has_cfi(self):
+        """Control Flow Integrity via Clang CFI or shadow call stack."""
+        for sym in CFI_SYMBOLS:
+            try:
+                if self.elf.get_symbol(sym):
+                    return True
+            except Exception:
+                pass
+        return False
+
+    def has_cet(self):
+        """Intel Control-flow Enforcement Technology (IBT + SHSTK) via GNU_PROPERTY note."""
+        try:
+            for note in self.elf.notes:
+                if note.type == lief.ELF.Note.TYPE.GNU_PROPERTY:
+                    raw = bytes(note.description)
+                    # GNU_PROPERTY_X86_FEATURE_1_AND = 0xc0000002
+                    # IBT bit 0x1, SHSTK bit 0x2
+                    if b'\x02\x00\x00\xc0' in raw or b'\xc0\x00\x00\x02' in raw:
+                        return True
+        except Exception:
+            pass
+        return False
+
+    def dangerous_imports(self):
+        """Return a list of imported unsafe C functions."""
+        found = []
+        try:
+            imported = {sym.name for sym in self.elf.imported_symbols}
+            for fn in DANGEROUS_IMPORTS:
+                if fn in imported:
+                    found.append(fn)
+        except Exception:
+            pass
+        return found
 
     def get_symbols(self):
         symbols = []
