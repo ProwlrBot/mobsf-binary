@@ -39,7 +39,7 @@
               <div class="col-md-5">
                 <div class="form-group">
                   <label>Recent Scans</label>
-                  <select name="_redirect_hash" class="form-control" onchange="this.form.action='/triage/'+this.value+'/'; this.form.method='get';">
+                  <select name="_redirect_hash" class="form-control" onchange="if(this.value) window.location='/triage/'+this.value+'/';">
                     <option value="">— pick a scan —</option>
                     {% for s in recent %}
                     <option value="{{ s.MD5 }}" {% if s.MD5 == scan_hash %}selected{% endif %}>

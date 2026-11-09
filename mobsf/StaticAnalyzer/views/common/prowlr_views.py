@@ -150,12 +150,13 @@ def triage_view(request, scan_hash=None):
         except Exception:
             pass
 
-    # LLM status badge
-    try:
-        from mobsf.StaticAnalyzer.views.common.llm_triage import get_provider_status
-        llm_status = get_provider_status()
-    except Exception:
-        llm_status = {}
+    # LLM status badge — read config directly, don't probe (probe returns 'none' when unreachable)
+    cfg_llm = _load_llm_cfg()
+    llm_status = {
+        'provider':  cfg_llm.get('provider', 'auto'),
+        'model':     cfg_llm.get('model', ''),
+        'available': cfg_llm.get('provider', 'auto') not in ('none', ''),
+    }
 
     return render(request, 'prowlr/triage.html', _base_ctx({
         'recent': recent,
