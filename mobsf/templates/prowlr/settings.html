@@ -59,6 +59,10 @@
                   <input type="number" name="timeout" class="form-control" value="{{ cfg.timeout }}" min="5" max="300">
                 </div>
                 <button type="submit" class="btn btn-primary"><i class="fas fa-save mr-1"></i>Save</button>
+                <button type="button" class="btn btn-outline-info ml-2" onclick="testConnection()">
+                  <i class="fas fa-plug mr-1"></i>Test Connection
+                </button>
+                <div id="test-result" class="mt-2" style="display:none;"></div>
               </form>
             </div>
           </div>
@@ -115,4 +119,44 @@
     </div>
   </section>
 </div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function testConnection() {
+  var btn = event.target.closest('button');
+  var res = document.getElementById('test-result');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Testing…';
+  res.style.display = 'none';
+  var payload = {
+    base_url: document.querySelector('[name=base_url]').value.trim(),
+    provider: document.querySelector('[name=provider]').value,
+    api_key:  document.querySelector('[name=api_key]').value.trim(),
+  };
+  fetch('{% url "test_llm_connection" %}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json',
+              'X-CSRFToken': (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ''},
+    body: JSON.stringify(payload),
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    res.style.display = 'block';
+    if (data.ok) {
+      var models = data.models && data.models.length ? '<br><small>Models: ' + data.models.join(', ') + '</small>' : '';
+      res.innerHTML = '<div class="alert alert-success py-2 mb-0"><i class="fas fa-check-circle mr-2"></i>Connected — ' + data.latency_ms + 'ms' + models + '</div>';
+    } else {
+      res.innerHTML = '<div class="alert alert-danger py-2 mb-0"><i class="fas fa-times-circle mr-2"></i>' + (data.error || 'Connection failed') + '</div>';
+    }
+  })
+  .catch(function(e){
+    res.style.display = 'block';
+    res.innerHTML = '<div class="alert alert-danger py-2 mb-0"><i class="fas fa-times-circle mr-2"></i>' + e + '</div>';
+  })
+  .finally(function(){
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plug mr-1"></i>Test Connection';
+  });
+}
+</script>
 {% endblock %}

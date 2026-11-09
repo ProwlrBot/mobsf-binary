@@ -2,14 +2,18 @@
 """ProwlrBot UI views — Settings + Triage dashboard."""
 import json
 import logging
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_POST, require_http_methods
 
 from mobsf.MobSF.views.authorization import has_permission, Permissions
+from mobsf.StaticAnalyzer.models import RecentScansDB
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +97,6 @@ def triage_view(request, scan_hash=None):
     # Recent scans list for the picker
     recent = []
     try:
-        from mobsf.MobSF.models import RecentScansDB
         recent = list(RecentScansDB.objects.order_by('-TIMESTAMP').values(
             'MD5', 'FILE_NAME', 'APP_NAME', 'ANALYZER', 'TIMESTAMP')[:30])
     except Exception:
@@ -108,7 +111,6 @@ def triage_view(request, scan_hash=None):
         skip_noise = 'skip_noise' in request.POST
         try:
             from mobsf.StaticAnalyzer.views.common.triage_pipeline import run_triage
-            from mobsf.MobSF.models import RecentScansDB
 
             robj = RecentScansDB.objects.filter(MD5=scan_hash).first()
             if not robj:
@@ -134,7 +136,6 @@ def triage_view(request, scan_hash=None):
 
     elif scan_hash and request.method == 'GET':
         try:
-            from mobsf.MobSF.models import RecentScansDB
             robj = RecentScansDB.objects.filter(MD5=scan_hash).first()
             if robj:
                 scan_info = {
@@ -160,6 +161,53 @@ def triage_view(request, scan_hash=None):
         'llm_status': llm_status,
         'error': err,
     }))
+
+
+# ─── LLM Connection Test ───────────────────────────────────────────────────────
+
+@login_required
+@require_POST
+def test_llm_connection(request):
+    """AJAX: probe a base URL and return JSON {ok, latency_ms, models, error}."""
+    try:
+        body = json.loads(request.body or b'{}')
+    except Exception:
+        body = {}
+    base_url = body.get('base_url', '').rstrip('/')
+    provider = body.get('provider', 'auto')
+    api_key  = body.get('api_key', '') or _load_llm_cfg().get('api_key', '')
+
+    if not base_url:
+        # Use provider default
+        from mobsf.StaticAnalyzer.views.common.llm_triage import PROVIDER_DEFAULTS
+        defaults = PROVIDER_DEFAULTS.get(provider, {})
+        base_url = defaults.get('base_url', '')
+        if not api_key:
+            api_key = defaults.get('key', '')
+
+    if not base_url:
+        return JsonResponse({'ok': False, 'error': 'No base URL — enter one or pick a provider with a default'})
+
+    import time
+    target = f'{base_url}/models'
+    headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
+    try:
+        req = urllib.request.Request(target, headers=headers)
+        t0 = time.monotonic()
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            ms = round((time.monotonic() - t0) * 1000)
+            raw = resp.read(4096)
+        try:
+            data = json.loads(raw)
+            models = [m.get('id', m) if isinstance(m, dict) else str(m)
+                      for m in data.get('data', [])][:10]
+        except Exception:
+            models = []
+        return JsonResponse({'ok': True, 'latency_ms': ms, 'models': models})
+    except urllib.error.HTTPError as e:
+        return JsonResponse({'ok': False, 'error': f'HTTP {e.code}: {e.reason}'})
+    except Exception as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)})
 
 
 def _pull_findings(scan_hash: str) -> list:

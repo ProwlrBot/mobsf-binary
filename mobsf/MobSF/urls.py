@@ -50,6 +50,7 @@ from mobsf.StaticAnalyzer.views.common.binary_intel import (
 from mobsf.StaticAnalyzer.views.common.prowlr_views import (
     prowlr_settings,
     triage_view,
+    test_llm_connection,
 )
 from mobsf.StaticAnalyzer import tests
 from mobsf.StaticAnalyzer.views.common import (
@@ -515,6 +516,7 @@ if not settings.API_ONLY:
         re_path(r'^settings/$', prowlr_settings, name='prowlr_settings'),
         re_path(r'^triage/$', triage_view, name='triage_home'),
         re_path(r'^triage/(?P<scan_hash>[0-9a-f]{32})/$', triage_view, name='triage_scan'),
+        re_path(r'^settings/test_llm/$', test_llm_connection, name='test_llm_connection'),
         # Binary Intelligence
         re_path(r'^binary_intel/$', binary_intel_home, name='binary_intel'),
         re_path(r'^binary_intel/scan/$', binary_intel_scan, name='binary_intel_scan'),
