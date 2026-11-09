@@ -15,13 +15,31 @@ Install / auth: https://docs.projectdiscovery.io/tools/vulnx
 """
 import json
 import logging
+import os
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
 
-VULNX_BIN = shutil.which('vulnx') or '/home/anon/go/bin/vulnx'
+
+def _find_vulnx() -> str:
+    """Locate vulnx: env override → PATH → common user dirs → bare name."""
+    if os.environ.get('VULNX_BIN'):
+        return os.environ['VULNX_BIN']
+    found = shutil.which('vulnx')
+    if found:
+        return found
+    home = Path.home()
+    for d in ('go/bin', '.local/bin', '.pd/bin'):
+        p = home / d / 'vulnx'
+        if p.is_file():
+            return str(p)
+    return 'vulnx'
+
+
+VULNX_BIN = _find_vulnx()
 VULNX_TIMEOUT = 20
 MAX_RESULTS_PER_QUERY = 20
 
@@ -37,7 +55,7 @@ SEVERITY_MAP = {
 
 def _vulnx_available() -> bool:
     """Check if vulnx binary exists and is executable."""
-    return bool(shutil.which('vulnx') or (VULNX_BIN and __import__('os').path.isfile(VULNX_BIN)))
+    return bool(shutil.which('vulnx') or (VULNX_BIN and Path(VULNX_BIN).is_file()))
 
 
 def _run_vulnx(args: list[str]) -> list[dict] | None:
@@ -114,7 +132,6 @@ def _parse_vuln(raw: dict) -> dict:
         'has_poc': has_poc,
         'references': raw.get('references') or [],
         'published': raw.get('published') or raw.get('publish_date') or '',
-        'raw': raw,
     }
 
 
