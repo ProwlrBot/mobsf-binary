@@ -73,12 +73,16 @@ def prowlr_settings(request):
         except Exception as exc:
             error = str(exc)
 
-    # Get provider status
-    try:
-        from mobsf.StaticAnalyzer.views.common.llm_triage import get_provider_status
-        status = get_provider_status()
-    except Exception:
-        status = {}
+    # Show configured values directly (not resolved/probed status which shows 'none' when LLM unreachable)
+    cfg_fresh = _load_llm_cfg()
+    status = {
+        'provider':    cfg_fresh.get('provider', 'auto'),
+        'model':       cfg_fresh.get('model', ''),
+        'base_url':    cfg_fresh.get('base_url', ''),
+        'api_key_set': bool(cfg_fresh.get('api_key', '')),
+        'available':   cfg_fresh.get('provider', 'auto') not in ('none', ''),
+        'config_file': str(LLM_CFG_PATH),
+    }
 
     return render(request, 'prowlr/settings.html', _base_ctx({
         'cfg': cfg,
