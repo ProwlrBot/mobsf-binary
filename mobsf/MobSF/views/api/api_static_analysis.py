@@ -474,3 +474,91 @@ def api_binary_findings(request):
         ),
     }
     return make_api_response(result, 200)
+
+
+@request_method(['POST'])
+@csrf_exempt
+def api_triage(request):
+    """POST - Run full triage pipeline on a completed scan.
+
+    Runs fp_filter → llm_triage → masvs_coverage → triage_report.
+
+    POST body (JSON or form):
+      hash                  - MD5 scan hash (required)
+      skip_llm              - force rule-based scoring (optional, default false)
+      skip_noise_in_report  - omit noise findings from HTML report (optional)
+    """
+    import json as _json
+    from mobsf.StaticAnalyzer.views.common.triage_pipeline import run_triage
+
+    try:
+        raw = request.body
+        if raw:
+            data = _json.loads(raw)
+        else:
+            data = request.POST.dict()
+    except Exception:
+        data = request.POST.dict()
+
+    scan_hash = data.get('hash', '')
+    if not scan_hash or not is_md5(scan_hash):
+        return make_api_response({'error': 'Valid hash required'}, 422)
+
+    skip_llm = bool(data.get('skip_llm', False))
+    skip_noise = bool(data.get('skip_noise_in_report', False))
+
+    # Resolve app metadata from DB
+    app_info: dict = {}
+    try:
+        robj = RecentScansDB.objects.filter(MD5=scan_hash).first()
+        if not robj:
+            return make_api_response({'error': f'Scan {scan_hash} not found'}, 404)
+        app_info = {
+            'app_name': getattr(robj, 'APP_NAME', '') or getattr(robj, 'FILE_NAME', ''),
+            'package': getattr(robj, 'PACKAGE_NAME', '') or '',
+            'version': getattr(robj, 'VERSION_NAME', '') or '',
+            'platform': getattr(robj, 'ANALYZER', '') or 'android',
+        }
+    except Exception:
+        pass
+
+    # Pull code analysis findings from Android model
+    findings: list = []
+    try:
+        from mobsf.StaticAnalyzer.models import StaticAnalyzerAndroid
+        report_obj = StaticAnalyzerAndroid.objects.filter(MD5=scan_hash).first()
+        if report_obj and getattr(report_obj, 'CODE_ANALYSIS', None):
+            raw_ca = report_obj.CODE_ANALYSIS
+            if isinstance(raw_ca, dict):
+                for rule_id, item in raw_ca.items():
+                    if isinstance(item, dict):
+                        meta = item.get('metadata', {})
+                        findings.append({
+                            'title': meta.get('description', rule_id),
+                            'description': meta.get('description', ''),
+                            'rule_id': rule_id,
+                            'severity': meta.get('severity', 'info'),
+                            'file_path': '',
+                            'code': '',
+                        })
+    except Exception:
+        pass
+
+    try:
+        result = run_triage(
+            findings,
+            app_info=app_info,
+            skip_llm=skip_llm,
+            skip_noise_in_report=skip_noise,
+        )
+        return make_api_response({
+            'hash': scan_hash,
+            'stats': result['stats'],
+            'coverage': result.get('coverage', {}).get('summary', {}),
+            'gap_controls': result.get('coverage', {}).get('gap_controls', []),
+            'llm_provider': result['llm_status'].get('provider', 'none'),
+            'findings_count': len(result['findings']),
+            'html_available': bool(result.get('html', '')),
+        }, 200)
+    except Exception as exp:
+        return make_api_response({'error': str(exp)}, 500)
