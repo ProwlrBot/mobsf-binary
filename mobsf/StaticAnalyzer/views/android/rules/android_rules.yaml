@@ -996,3 +996,326 @@
     cwe: cwe-287
     owasp-mobile: m3
     masvs: auth-1
+
+# ── PLATFORM-8: FLAG_SECURE absence ──────────────────────────────────────────
+- id: android_no_flag_secure
+  message: >-
+    Sensitive Activity/Fragment class detected without FLAG_SECURE. Class name
+    suggests it handles sensitive data (login, payment, settings) but FLAG_SECURE
+    is not set, allowing screenshots and screen-sharing capture of this screen.
+  type: Regex
+  pattern: 'class\s+(Login|Payment|Checkout|Password|Pin|Card|Account|Banking|Transfer)(Activity|Fragment)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.3
+    cwe: cwe-200
+    owasp-mobile: m2
+    masvs: platform-8
+    ref: https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_SECURE
+- id: android_flag_secure_present
+  message: >-
+    FLAG_SECURE is set on this window — prevents screenshots and screen recording.
+    Good practice for screens displaying sensitive data (MASVS-PLATFORM-8).
+  type: Regex
+  pattern: 'FLAG_SECURE|addFlags.*FLAG_SECURE|setFlags.*FLAG_SECURE'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: platform-8
+
+# ── PLATFORM-7: AutoFill / UI data exposure ───────────────────────────────────
+- id: android_autofill_credit_card_hint
+  message: >-
+    AutoFill hint exposes credit card field type to the AutoFill framework.
+    Verify autofill is disabled (IMPORTANT_FOR_AUTOFILL_NO) on fields that
+    should never be cached, such as CVV and full PAN fields.
+  type: Regex
+  pattern: 'AUTOFILL_HINT_CREDIT_CARD_NUMBER|AUTOFILL_HINT_CREDIT_CARD_EXPIRATION|autofillHints.*creditCard'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-312
+    owasp-mobile: m2
+    masvs: platform-7
+- id: android_important_for_autofill_no
+  message: >-
+    importantForAutofill set to NO — correctly prevents AutoFill caching for
+    this field. Satisfies MASVS-PLATFORM-7 for sensitive input fields.
+  type: Regex
+  pattern: 'importantForAutofill.*no|IMPORTANT_FOR_AUTOFILL_NO|setImportantForAutofill\s*\(\s*View\.IMPORTANT_FOR_AUTOFILL_NO'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: platform-7
+- id: android_keyboard_cache_sensitive
+  message: >-
+    Input field uses a type that enables keyboard caching (textEmailAddress,
+    phone, textPersonName). Use inputType="textNoSuggestions" or
+    IME_FLAG_NO_PERSONALIZED_LEARNING to prevent keyboard learning on sensitive fields.
+  type: Regex
+  pattern: 'inputType.*textEmailAddress|inputType.*phone|inputType.*textPersonName'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 2.0
+    cwe: cwe-312
+    owasp-mobile: m2
+    masvs: platform-7
+
+# ── RESILIENCE-3: Obfuscation / ProGuard ─────────────────────────────────────
+- id: android_no_obfuscation_release
+  message: >-
+    minifyEnabled false detected. For production releases, ProGuard/R8 minification
+    and obfuscation should be enabled (minifyEnabled true + proguardFiles). Without
+    it, class and method names are readable in the APK, aiding reverse engineering.
+  type: Regex
+  pattern: 'minifyEnabled\s+false|minifyEnabled\s*=\s*false'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-693
+    owasp-mobile: m9
+    masvs: resilience-3
+- id: android_obfuscation_enabled
+  message: >-
+    ProGuard/R8 minification is enabled (minifyEnabled true). Obfuscation raises
+    the bar for static analysis and reverse engineering (MASVS-RESILIENCE-3).
+  type: Regex
+  pattern: 'minifyEnabled\s+true|minifyEnabled\s*=\s*true'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-3
+- id: android_native_string_decrypt
+  message: >-
+    Native method named decrypt/deobfuscate/decode found — may indicate string
+    encryption in the native layer (MASVS-RESILIENCE-3). JNI boundary suggests
+    protected strings are decrypted at runtime via native code.
+  type: Regex
+  pattern: 'native\s+.*(?:decrypt|deobfuscate|decode)|System\.loadLibrary.*(?:crypt|obfusc)'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-3
+
+# ── AUTH-2: Biometric / identity verification ─────────────────────────────────
+- id: android_no_biometric_before_sensitive
+  message: >-
+    Sensitive operation method (makePayment, initiateTransfer, deleteAccount,
+    changePassword) found without adjacent BiometricPrompt call. MASVS-AUTH-2
+    requires identity verification before high-risk operations.
+  type: Regex
+  pattern: '(?:makePayment|initiateTransfer|deleteAccount|changePassword)\s*\('
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.0
+    cwe: cwe-306
+    owasp-mobile: m3
+    masvs: auth-2
+- id: android_biometric_prompt_present
+  message: >-
+    BiometricPrompt is used — identity verification before sensitive operations
+    is implemented. Satisfies MASVS-AUTH-2.
+  type: Regex
+  pattern: 'BiometricPrompt|authenticate.*biometric|BiometricManager'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: auth-2
+
+# ── CRYPTO-2: KeyStore usage ──────────────────────────────────────────────────
+- id: android_keystore_used
+  message: >-
+    AndroidKeyStore is used for key storage — hardware-backed, keys cannot be
+    extracted. Satisfies MASVS-CRYPTO-2 key management requirements.
+  type: Regex
+  pattern: 'AndroidKeyStore|KeyStore\.getInstance.*AndroidKeyStore|KeyGenParameterSpec|setKeystoreAlias'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: crypto-2
+- id: android_no_keystore_key_gen
+  message: >-
+    Key generation found without Android KeyStore provider. Keys generated with
+    KeyGenerator.getInstance("AES") without setProvider("AndroidKeyStore") are
+    stored in app memory and are extractable if the device is rooted.
+  type: Regex
+  pattern: 'KeyGenerator\.getInstance\s*\(\s*"AES"\s*\)|SecretKeySpec\s*\(\s*(?!.*AndroidKeyStore)'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 5.5
+    cwe: cwe-321
+    owasp-mobile: m5
+    masvs: crypto-2
+
+# ── STORAGE-2: Clipboard sensitive data ──────────────────────────────────────
+- id: android_clipboard_write
+  message: >-
+    Data written to clipboard via setPrimaryClip(). If content is sensitive
+    (token, password, PAN), it is accessible to any app on Android < 10.
+    Clear clipboard on app backgrounding (onPause).
+  type: Regex
+  pattern: 'setPrimaryClip|ClipData\.newPlainText'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 4.0
+    cwe: cwe-200
+    owasp-mobile: m2
+    masvs: storage-2
+
+# ── PRIVACY-2: PII in logs ────────────────────────────────────────────────────
+- id: android_pii_in_log
+  message: >-
+    Logging call may output PII (email, SSN, DOB, name, phone, credit card) to
+    Logcat. On Android < 4.1, any app can read Logcat. Even on later versions,
+    this exposes PII to debug tooling and crash reporters.
+  type: Regex
+  pattern: 'Log\.[vdiwef]\s*\(.*(?:email|ssn|dob|firstName|lastName|phoneNumber|creditCard|password|token)'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 6.5
+    cwe: cwe-532
+    owasp-mobile: m2
+    masvs: privacy-2
+
+# ── RESILIENCE-1: RootBeer / Magisk detection ─────────────────────────────────
+- id: android_rootbeer_present
+  message: >-
+    RootBeer root detection library is present. Robust multi-vector root
+    detection implemented — satisfies MASVS-RESILIENCE-1.
+  type: Regex
+  pattern: 'RootBeer|com\.scottyab\.rootbeer|rootBeer\.isRooted'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-1
+- id: android_magisk_detection
+  message: >-
+    Magisk Manager package check or /sbin/.magisk path check found — app detects
+    Magisk root hide. Satisfies MASVS-RESILIENCE-1.
+  type: Regex
+  pattern: 'com\.topjohnwu\.magisk|MagiskManager|/sbin/\.magisk|MagiskHide'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-1
+
+# ── RESILIENCE-4: Frida gadget / detection ───────────────────────────────────
+- id: android_frida_gadget_strings
+  message: >-
+    Frida gadget or agent string found in binary. This may indicate an
+    instrumented/patched build — or the app's own Frida detection code. Verify
+    which JNI lib contains this string and whether it is a detection mechanism
+    or an injected instrumentation artefact.
+  type: Regex
+  pattern: 'frida-gadget|frida-agent|libfrida|frida_agent_main|gum_script_backend'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.5
+    cwe: cwe-693
+    owasp-mobile: m9
+    masvs: resilience-4
+- id: android_frida_detection_code
+  message: >-
+    App contains code to detect Frida by checking for frida-server process,
+    /data/local/tmp/frida-server, or TCP port 27042. Satisfies MASVS-RESILIENCE-4.
+  type: Regex
+  pattern: 'frida.server|27042|frida-server|detectFrida|isFridaPresent|anti.*frida'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: ''
+    owasp-mobile: ''
+    masvs: resilience-4
+
+# ── PLATFORM-5: Deprecated APIs ──────────────────────────────────────────────
+- id: android_deprecated_telephony_imei
+  message: >-
+    TelephonyManager.getDeviceId() is deprecated since API 26. Returns IMEI on
+    Android 10+ only with privileged permission. Use ANDROID_ID or Play Services
+    advertising ID instead. Violates PLATFORM-5 and potentially PRIVACY-1.
+  type: Regex
+  pattern: 'getDeviceId\s*\(\s*\)|telephonyManager\.getDeviceId'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 3.5
+    cwe: cwe-359
+    owasp-mobile: m8
+    masvs: platform-5
+- id: android_deprecated_http_client
+  message: >-
+    Apache HttpClient (org.apache.http) is deprecated since API 22 and removed
+    in API 23. It does not benefit from modern TLS improvements. Migrate to
+    OkHttp or HttpURLConnection.
+  type: Regex
+  pattern: 'org\.apache\.http\.impl\.client\.DefaultHttpClient|org\.apache\.http\.client\.HttpClient'
+  severity: warning
+  input_case: exact
+  metadata:
+    cvss: 3.0
+    cwe: cwe-477
+    owasp-mobile: ''
+    masvs: platform-5
+- id: android_deprecated_asynctask
+  message: >-
+    AsyncTask is deprecated since API 30. It has known memory leak and lifecycle
+    issues. Migrate to Kotlin Coroutines or WorkManager.
+  type: Regex
+  pattern: 'extends\s+AsyncTask|AsyncTask<'
+  severity: info
+  input_case: exact
+  metadata:
+    cvss: 0.0
+    cwe: cwe-477
+    owasp-mobile: ''
+    masvs: platform-5
+
+# ── PLATFORM-6: Third-party self-update ──────────────────────────────────────
+- id: android_third_party_apk_install
+  message: >-
+    App installs APKs from arbitrary sources (ACTION_INSTALL_PACKAGE or
+    PackageInstaller.Session). This bypasses Play Store integrity checks and
+    allows silent malware distribution. Requires REQUEST_INSTALL_PACKAGES.
+  type: Regex
+  pattern: 'ACTION_INSTALL_PACKAGE|PackageInstaller\.Session|downloadApk|installApk'
+  severity: high
+  input_case: exact
+  metadata:
+    cvss: 7.5
+    cwe: cwe-494
+    owasp-mobile: m8
+    masvs: platform-6
