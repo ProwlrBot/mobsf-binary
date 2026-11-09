@@ -15,6 +15,9 @@ from mobsf.StaticAnalyzer.views.common.binary.elf import (
 from mobsf.StaticAnalyzer.views.common.binary.macho import (
     MachOChecksec,
 )
+from mobsf.StaticAnalyzer.views.common.binary.pe import (
+    PEChecksec,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +45,33 @@ def library_analysis(checksum, src, arch):
             ext = '*.so'
             if not settings_enabled('SO_ANALYSIS_ENABLED'):
                 return res
+        elif arch == 'pe':
+            analysis = PEChecksec
+            # Analyze both executables and dynamic-link libraries
+            pe_exts = ('*.exe', '*.dll')
+            msg = 'PE Binary Analysis Started'
+            logger.info(msg)
+            append_scan_status(checksum, msg)
+            for pe_ext in pe_exts:
+                for libfile in Path(src).rglob(pe_ext):
+                    rel_path = libfile.relative_to(base_dir).as_posix()
+                    msg = f'Analyzing {rel_path}'
+                    logger.info(msg)
+                    append_scan_status(checksum, msg)
+                    try:
+                        chk = PEChecksec(libfile, rel_path)
+                        chksec = chk.checksec()
+                        strings = chk.strings()
+                        symbols = chk.get_symbols()
+                        if chksec:
+                            res[f'{arch}_analysis'].append(chksec)
+                        if strings:
+                            res[f'{arch}_strings'].append({rel_path: strings})
+                        if symbols:
+                            res[f'{arch}_symbols'].append({rel_path: symbols})
+                    except Exception as exp:
+                        logger.warning('Error analyzing %s: %s', rel_path, exp)
+            return res
         elif arch == 'ar':
             ext = '*.o'
             res[f'{arch}_a'] = ''
